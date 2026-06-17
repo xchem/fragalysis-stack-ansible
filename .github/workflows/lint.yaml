@@ -1,0 +1,32 @@
+---
+name: lint
+
+# Lint the role and the root site-*.yaml playbooks with ansible-lint,
+# using the uv-managed environment (Python and ansible-lint come from
+# pyproject.toml / uv.lock, so CI matches local runs).
+
+on:
+  push:
+    branches:
+    - main
+  pull_request:
+    branches:
+    - main
+
+jobs:
+  ansible-lint:
+    runs-on: ubuntu-latest
+    steps:
+    - name: Check out the repository
+      uses: actions/checkout@v4
+
+    - name: Install uv
+      uses: astral-sh/setup-uv@v6
+      with:
+        enable-cache: true
+
+    - name: Install dependencies
+      run: uv sync --frozen
+
+    - name: Run ansible-lint
+      run: uv run ansible-lint roles/fragalysis_stack site-*.yaml
