@@ -1,0 +1,106 @@
+---
+kind: Deployment
+apiVersion: apps/v1
+metadata:
+  name: redis
+  namespace: {{ stack_namespace }}
+spec:
+  replicas: 1
+  revisionHistoryLimit: 10
+  strategy:
+    rollingUpdate:
+      maxUnavailable: 0  # Avoid Terminating and ContainerCreating at the same time
+  selector:
+    matchLabels:
+      name: redis
+  template:
+    metadata:
+      labels:
+        name: redis
+    spec:
+      serviceAccountName: stack
+
+      # Pod Node Affinity.
+      # Prefer 'core' before 'application'
+      # then try anything other than 'worker before finally trying 'worker'
+      affinity:
+        nodeAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+          - weight: 40
+            preference:
+              matchExpressions:
+              - key: informaticsmatters.com/purpose-core
+                operator: Exists
+          - weight: 30
+            preference:
+              matchExpressions:
+              - key: informaticsmatters.com/purpose-application
+                operator: Exists
+          - weight: 20
+            preference:
+              matchExpressions:
+              - key: informaticsmatters.com/purpose-worker
+                operator: DoesNotExist
+
+{% if all_image_preset_pullsecret_name|string|length > 0 %}
+      imagePullSecrets:
+      - name: {{ all_image_preset_pullsecret_name }}
+{% endif %}
+
+      containers:
+      - name: redis
+        image: {{ redis_image }}:{{ redis_image_tag }}
+        imagePullPolicy: IfNotPresent
+        command:
+        - redis-server
+        - "/redis-master/redis.conf"
+        env:
+        - name: MASTER
+          value: "true"
+        ports:
+        - name: client
+          containerPort: 6379
+        resources:
+          limits:
+            cpu: 250m
+          requests:
+            cpu: 250m
+            memory: 128Mi
+        livenessProbe:
+          tcpSocket:
+            port: client
+          initialDelaySeconds: 20
+          timeoutSeconds: 4
+          periodSeconds: 10
+          failureThreshold: 5
+          successThreshold: 1
+        readinessProbe:
+          exec:
+            command:
+            - sh
+            - -c
+            - redis-cli ping
+          initialDelaySeconds: 10
+          timeoutSeconds: 4
+          periodSeconds: 10
+          failureThreshold: 5
+          successThreshold: 1
+        volumeMounts:
+{% if redis_vol_size_g | int %}
+        - name: data
+          mountPath: /redis-master-data
+{% endif %}
+        - name: config
+          mountPath: /redis-master/redis.conf
+          subPath: redis.conf
+          readOnly: true
+
+      volumes:
+{% if redis_vol_size_g | int %}
+      - name: data
+        persistentVolumeClaim:
+          claimName: redis
+{% endif %}
+      - name: config
+        configMap:
+          name: redis-conf

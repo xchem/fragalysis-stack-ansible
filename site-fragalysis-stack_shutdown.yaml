@@ -1,0 +1,9 @@
+---
+
+- name: Shutdown the Fragalysis Stack
+  hosts: localhost
+  tasks:
+  - name: Run the fragalysis_stack role (shutdown)
+    ansible.builtin.include_role:
+      name: fragalysis_stack
+      tasks_from: shutdown.yaml

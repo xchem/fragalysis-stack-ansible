@@ -1,0 +1,59 @@
+---
+# Essentially a sub-task, used normally from a loop in an outer playbook.
+# This task logic waits for a given stack 'stack-{{ stack_id }}' to
+# become ready, first waiting for it become un-ready if a termination
+# is expected.
+#
+# Expected variables:
+#
+# - stack_id                   : required : The numeric ID of the stack 0..N-1
+# - stack_namespace            : required : The stack namespace
+# - stack_wait_for_termination : optional : Yes if termination is expected
+# - wait_timeout               : required : maximum time to wait
+
+# If we're asked for termination, does the stack exist?
+# If so wait for unready first.
+
+- name: Get expected Pod for stack-{{ stack_id }}
+  kubernetes.core.k8s_info:
+    kind: Pod
+    name: stack-{{ stack_id }}
+    namespace: "{{ stack_namespace }}"
+  register: p_result
+  when:
+  - stack_wait_for_termination is defined
+  - stack_wait_for_termination|bool
+
+- name: Wait for un-Ready state of stack-{{ stack_id }}
+  kubernetes.core.k8s_info:
+    kind: Pod
+    name: stack-{{ stack_id }}
+    namespace: "{{ stack_namespace }}"
+  register: s_result
+  until: >-
+    s_result.resources|length == 1
+    and s_result.resources[0].status.containerStatuses is defined
+    and s_result.resources[0].status.containerStatuses|length == 1
+    and not s_result.resources[0].status.containerStatuses[0].ready
+  delay: 8
+  retries: "{{ (wait_timeout | int / 8) | int }}"
+  when:
+  - stack_wait_for_termination is defined
+  - stack_wait_for_termination|bool
+  - p_result.resources|length > 0
+
+# Now wait for ready...
+
+- name: Wait for Ready state of stack-{{ stack_id }}
+  kubernetes.core.k8s_info:
+    kind: Pod
+    name: stack-{{ stack_id }}
+    namespace: "{{ stack_namespace }}"
+  register: s_result
+  until: >-
+    s_result.resources|length == 1
+    and s_result.resources[0].status.containerStatuses is defined
+    and s_result.resources[0].status.containerStatuses|length == 1
+    and s_result.resources[0].status.containerStatuses[0].ready
+  delay: 20
+  retries: "{{ (wait_timeout | int / 20) | int }}"

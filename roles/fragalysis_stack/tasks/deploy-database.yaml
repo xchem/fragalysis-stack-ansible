@@ -1,0 +1,195 @@
+---
+# If 'stack_allow_pre_existing_database_volume' is 'no'
+# we must stop if we find the database volume exists.
+# This step is designed to prevent the user from running consecutive
+# 'replication' plays where they are expected to have 'shutdown'
+# the corresponding stack before replicating again.
+#
+# We run this check if we don't allow a pre-existing DB volume
+# (when we're also skipping the deployment of the stack).
+
+- name: Check database volume
+  when:
+  - not stack_allow_pre_existing_database_volume|bool
+  - stack_skip_deploy|bool
+
+  block:
+  - name: Get database volume
+    kubernetes.core.k8s_info:
+      kind: PersistentVolumeClaim
+      name: database
+      namespace: "{{ stack_namespace }}"
+    register: db_pvc_result
+
+  - name: Assert database volume is absent
+    ansible.builtin.assert:
+      that: db_pvc_result.resources|length == 0
+      fail_msg: >-
+        The database volume exists but shouldn't.
+        Do you need to run the corresponding 'shutdown' play first?
+
+- name: Create database volume claim
+  kubernetes.core.k8s:
+    definition: "{{ lookup('template', 'pvc-database.yaml.j2') }}"
+    wait: yes
+    wait_timeout: "{{ wait_timeout }}"
+
+# Best practice ... wait for the PVC to bind.
+# e.g. wait until resources[0].status.phase == Bound (initially Pending)
+
+- name: Wait for database volume claim to bind
+  kubernetes.core.k8s_info:
+    kind: PersistentVolumeClaim
+    name: database
+    namespace: "{{ stack_namespace }}"
+  register: bind_result
+  until: bind_result.resources[0].status.phase == 'Bound'
+  delay: 5
+  retries: "{{ (bind_timeout | int / 5) | int }}"
+  when: wait_for_bind|bool
+
+# Now the database secrets.
+#
+# We rely on random passwords but only if they've not already been deployed.
+# It's too complicated to change root password if it's already been set so,
+# if the secret exists then we pull values from the deployed object
+# and we do not write them again.
+
+- name: Check database secrets
+  kubernetes.core.k8s_info:
+    kind: Secret
+    api_version: v1
+    namespace: "{{ stack_namespace }}"
+    name: database
+  register: s_result
+
+- name: Set database location (internal)
+  ansible.builtin.set_fact:
+    database_host_fact: database.{{ stack_namespace }}.svc
+    database_port_fact: "{{ database_port }}"
+  when: database_host|string|length == 0
+
+- name: Set database location (external)
+  ansible.builtin.set_fact:
+    database_host_fact: database_host
+    database_port_fact: "{{ database_port }}"
+  when: database_host|string|length > 0
+
+- name: Display database location
+  ansible.builtin.debug:
+    msg: >-
+      database_host_fact={{ database_host_fact }}
+      database_port_fact={{ database_port_fact }}
+
+- name: Set database secret facts (new)
+  ansible.builtin.set_fact:
+    stack_db_root_password_fact: "{{ database_root_password }}"
+    stack_db_user_password_fact: "{{ database_user_password }}"
+  when: s_result.resources|length == 0
+
+- name: Write database secrets
+  kubernetes.core.k8s:
+    definition: "{{ lookup('template', 'secret-database.yaml.j2') }}"
+    wait: yes
+  when: s_result.resources|length == 0
+
+- name: Set database secret facts (from secrets)
+  ansible.builtin.set_fact:
+    database_host_fact: "{{ s_result.resources[0].data.host | b64decode }}"
+    database_port_fact: "{{ s_result.resources[0].data.port | b64decode }}"
+    stack_db_root_password_fact: "{{ s_result.resources[0].data.root_password | b64decode }}"
+    stack_db_user_password_fact: "{{ s_result.resources[0].data.user_password | b64decode }}"
+  when: s_result.resources|length == 1
+
+# Now deploy the database and its service.
+
+- name: Display database image
+  ansible.builtin.debug:
+    msg: >-
+      database_image_registry={{ database_image_registry }} database_image={{ database_image }} database_image_tag={{ database_image_tag }}
+
+- name: Deploy database
+  kubernetes.core.k8s:
+    definition: "{{ lookup('template', item) }}"
+    wait: yes
+  loop:
+  - configmap-postgres-conf.yaml.j2
+  - configmap-postgres-init.yaml.j2
+  - statefulset-database.yaml.j2
+  - service-database.yaml.j2
+
+- name: Wait for database to become Ready
+  kubernetes.core.k8s_info:
+    kind: Pod
+    name: database-0
+    namespace: "{{ stack_namespace }}"
+  register: db_result
+  until: >-
+    db_result.resources is defined
+    and db_result.resources|length == 1
+    and db_result.resources[0].status is defined
+    and db_result.resources[0].status.containerStatuses is defined
+    and db_result.resources[0].status.containerStatuses|length == 1
+    and db_result.resources[0].status.containerStatuses[0].ready
+  delay: 10
+  retries: "{{ (wait_timeout | int / 10) | int }}"
+
+# Database (backups) ----------------------------------------------------------
+
+- name: Database backup
+  when: database_bu_state|string == 'present'
+
+# pgBouncer ----------------------------------------------------------
+
+  block:
+#  - name: Get {{ database_bu_vol_storageclass }} backup StorageClass
+#    k8s_info:
+#      kind: StorageClass
+#      name: "{{ database_bu_vol_storageclass }}"
+#      wait: yes
+#    register: sc_result
+#    when: database_bu_vol_storageclass != " "
+
+#  - name: Assert {{ database_bu_vol_storageclass }} backup StorageClass
+#    assert:
+#      that: sc_result.resources|length == 1
+#      fail_msg: The {{ database_bu_vol_storageclass }} StorageClass must be available on the cluster
+#    when: database_bu_vol_storageclass != " "
+
+  - name: Create postgres backup volume claim ({{ database_bu_vol_storageclass }})
+    kubernetes.core.k8s:
+      definition: "{{ lookup('template', 'pvc-postgres-backup.yaml.j2') }}"
+      wait: yes
+      wait_timeout: "{{ wait_timeout }}"
+
+  - name: Wait for postgres backup volume claim to bind
+    kubernetes.core.k8s_info:
+      kind: PersistentVolumeClaim
+      name: database-backup
+      namespace: "{{ stack_namespace }}"
+    register: bu_pvc_result
+    until: >-
+      bu_pvc_result.resources|length > 0
+      and bu_pvc_result.resources[0].status is defined
+      and bu_pvc_result.resources[0].status.phase == 'Bound'
+    delay: 5
+    retries: "{{ (bind_timeout | int / 5) | int }}"
+    when: wait_for_bind|bool
+
+  - name: Deploy backup CronJobs
+    kubernetes.core.k8s:
+      definition: "{{ lookup('template', 'cronjob-postgres-backup.yaml.j2') }}"
+      wait: yes
+      wait_timeout: "{{ wait_timeout }}"
+
+- name: PgBouncer
+  when: pgbouncer_tag | string | length != 0
+  block:
+  - name: Deploy pgBouncer
+    kubernetes.core.k8s:
+      definition: "{{ lookup('template', item) }}"
+      wait: yes
+    loop:
+    - secret-pgbouncer.yaml.j2
+    - deployment-pgbouncer.yaml.j2
+    - service-pgbouncer.yaml.j2

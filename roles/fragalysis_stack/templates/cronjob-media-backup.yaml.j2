@@ -1,0 +1,96 @@
+---
+# CronJob for the 'daily' media backups.
+kind: CronJob
+apiVersion: batch/v1
+metadata:
+  name: media-backup
+  namespace: {{ stack_namespace }}
+spec:
+  schedule: '{{ media_bu_schedule }}'
+  successfulJobsHistoryLimit: 1
+  startingDeadlineSeconds: 180
+  concurrencyPolicy: Forbid
+  jobTemplate:
+    spec:
+      template:
+        metadata:
+          labels:
+            name: media-backup
+        spec:
+          serviceAccountName: stack
+
+          # A 'preferred' (not guaranteed)
+          # node selection affinity...
+          affinity:
+            nodeAffinity:
+              preferredDuringSchedulingIgnoredDuringExecution:
+              - weight: 40
+                preference:
+                  matchExpressions:
+                  - key: informaticsmatters.com/purpose-application
+                    operator: Exists
+
+{% if all_image_preset_pullsecret_name|string|length > 0 %}
+          imagePullSecrets:
+          - name: {{ all_image_preset_pullsecret_name }}
+{% endif %}
+
+          containers:
+          - image: informaticsmatters/volume-replicator:{{ media_bu_image_tag }}
+            name: media-backup
+            imagePullPolicy: IfNotPresent
+            terminationMessagePolicy: FallbackToLogsOnError
+            resources:
+              limits:
+                cpu: 1
+                memory: 1Gi
+              requests:
+                cpu: 10m
+                memory: 1Gi
+            env:
+            - name: REPLICATE_DIRECTION
+              value: 'BtoA'
+            - name: REPLICATE_DELETE
+              value: 'yes'
+            - name: USE_RCLONE
+              value: 'yes'
+            - name: USE_DOW_FOR_RCLONE
+              value: 'yes'
+            - name: USE_RCLONE_NO_CHECK_CERTIFICATE
+              value: 'yes'
+            - name: RCLONE_S3_ENDPOINT
+              valueFrom:
+                secretKeyRef:
+                  name: backup-rclone
+                  key: s3_endpoint
+            - name: RCLONE_S3_PROVIDER
+              valueFrom:
+                secretKeyRef:
+                  name: backup-rclone
+                  key: s3_provider
+            - name: S3_BUCKET_NAME
+              value: '{{ media_bu_rclone_bucket }}'
+            - name: AWS_ACCESS_KEY_ID
+              valueFrom:
+                secretKeyRef:
+                  name: backup-rclone
+                  key: s3_access_key_id
+            - name: AWS_SECRET_ACCESS_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: backup-rclone
+                  key: s3_secret_access_key
+            - name: AWS_DEFAULT_REGION
+              valueFrom:
+                secretKeyRef:
+                  name: backup-rclone
+                  key: s3_default_region
+            volumeMounts:
+            - name: volume-b
+              mountPath: /volume-b
+
+          volumes:
+          - name: volume-b
+            persistentVolumeClaim:
+              claimName: media
+          restartPolicy: Never

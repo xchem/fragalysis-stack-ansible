@@ -1,0 +1,149 @@
+---
+
+# Variables,
+# but not ones the user is typically expected to adjust.
+
+# Fragalysis Stack configuration ----------------------------------------------
+
+# The state of the stack,
+# one of 'present' or 'absent'
+stack_state: present
+
+# Used typically by the staging deployment (which uses a copy of
+# production database and media). This variable prevents the
+# playbook from running if the Database volume is found in the namespace.
+# This is used to prevent a user running consecutive replications of
+# production to staging without running the 'shutdown' play between them.
+#
+# The user is required to 'shutdown' between replications to
+# a) create a clean copy of the production database, and
+# b) force the stack to run through its migrations.
+#
+# The 'production replica' workflow will set this value to 'no'
+stack_allow_pre_existing_database_volume: yes
+# Is an existing media volume permitted?
+# Added for latest staging deployment, which fails if the volume is present.
+stack_allow_pre_existing_media_volume: yes
+
+# Whether to remove the media volume when 'shutting down' the stack
+# (used by the shutdown play). By default the media volume
+# (time-consuming to recreate) is left alone during shutdown.
+stack_shutdown_remove_media_volume: no
+# Same with database volume (default is to 'remove')
+stack_shutdown_remove_database_volume: yes
+
+# The stack certificate issuer
+# For use with the Kubernetes cert-manager
+# deployed by the Informatics Matters infrastructure playbook.
+# If blank ('') there will be no certificate.
+stack_cert_issuer: ""
+
+stack_cpu_limit: 1
+stack_mem_limit: 4Gi
+stack_cpu_request: 1
+stack_mem_request: 4Gi
+# Worker ephemeral (emptyDir/local) storage.
+# Used for worker /tmp directory
+stack_ephemeral_request: 100Gi
+stack_ephemeral_limit: 100Gi
+# The emptyDir size limit
+stack_ephemeral_emptydir_size_limit: 110Gi
+
+# Inject proposals for specific users?
+# This DEBUG feature not available for production stacks.
+# The value is a comma-separated list of "user:project: pairs,
+# e.g. "user-1:lb32627-66,user2:lb32627-66"
+stack_restricted_tas_users:
+# The storage class of the volume used for the stack's media and log folder.
+# If left as an empty string the default storage class of the cluster
+# will be used. You should strive to use a named storage class, e.g. 'efs'.
+stack_media_vol_storageclass: " "
+stack_media_vol_size_g: 400
+stack_log_vol_storageclass:
+stack_django_secret_key: "{{ lookup('password', '/dev/null length=50 chars=ascii_letters') }}"
+stack_django_superuser_password: "{{ lookup('password', '/dev/null length=22 chars=ascii_letters') }}"
+
+# Worker configuration --------------------------------------------------------
+
+worker_cpu_limit: 4
+worker_mem_limit: 16Gi
+worker_cpu_request: 4
+worker_mem_request: 16Gi
+# Worker ephemeral (emptyDir/local) storage.
+# Used for worker /tmp directory
+worker_ephemeral_request: 100Gi
+worker_ephemeral_limit: 100Gi
+# The emptyDir size limit
+worker_ephemeral_emptydir_size_limit: 110Gi
+
+# Database configuration ------------------------------------------------------
+
+# Database Pod CPU and Memory resources
+database_cpu_limit: 500m
+database_mem_limit: 1Gi
+database_cpu_request: 100m
+database_mem_request: 400Mi
+
+database_image_registry: docker.io
+database_image: xchem/fragalysis-database
+database_image_tag: 2026.02.1
+database_port: 5432
+
+# Configuration of the DB server. Content written to the postgres-conf ConfigMap.
+# Values defined here should be typical defaults for the default database_image_tag.
+# If users want to change the values they must provide a replacement of
+# the entire configuration file.
+database_conf: |
+  listen_addresses = '*'
+  max_connections = 100
+  shared_buffers = 128MB
+  work_mem = 4MB
+
+# For the django application database.
+# Needs at least 400MB, size it accordingly.
+database_vol_size_g: 2
+
+# Auto-generated passwords.
+# Different lengths to avoid the Ansible caching problem.
+database_root_user: admin
+database_root_password: "{{ lookup('password', '/dev/null length=12 chars=ascii_letters') }}"
+database_user_password: "{{ lookup('password', '/dev/null length=10 chars=ascii_letters') }}"
+
+# Set to create the initial database user and database
+# via the postgres-init ConfigMap.
+database_create_users_and_databases: yes
+
+# pgBouncer
+pgbouncer_default_pool_size: 16
+pgbouncer_log_connections: 0
+pgbouncer_log_disconnections: 1
+pgbouncer_max_client_conn: 1000
+pgbouncer_max_db_connections: 16
+pgbouncer_min_pool_size: 16
+
+# During stress-testing of the stack (Apr 26) a concurrent download of 99 targets
+# resulted in the pgBouncer Pod using no more than 8MB RAM.
+pgbouncer_mem_limit: 64Mi
+pgbouncer_mem_request: 8Mi
+pgbouncer_cpu_limit: 500m
+pgbouncer_cpu_request: 500m
+
+redis_image: redis
+redis_image_tag: "7.4.9-alpine3.21"
+# Redis configuration (ConfigMap) values
+redis_conf_loglevel: notice
+redis_conf_maxmemory: 2gb
+# The number of logical databases.
+# Valid DB indices are 0 .. (redis_conf_databases - 1).
+redis_conf_databases: 4
+
+# General variables -----------------------------------------------------------
+
+# General timeout, used within the k8s module for wait duration
+wait_timeout: 600
+# Wait for volume binding?
+# Probably unless multi-zone deployments
+# where the PVC will not bind until the 'consumer' pod appears.
+wait_for_bind: no
+# Volume binding timeout (seconds)
+bind_timeout: 120

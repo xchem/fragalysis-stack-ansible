@@ -1,0 +1,38 @@
+---
+# Tasks required to 'wipe' a deployed version of Fragalysis.
+# Rather than a full delete, which would simply require the removal of the
+# namespace, this play leaves the SSL certificate and (optionally)
+# the database (normally no) and media (normally yes) volumes.
+#
+# Designed for use predominantly for the Production cluster's staging stack.
+#
+# This playbook first ensures that the Fragalysis namespace exists
+# and that an existing deployment exists - the user is first supposed
+# to have deployed the stack before wiping it.
+
+- name: Prepare
+  ansible.builtin.include_tasks: prep.yaml
+- name: Assert authentication
+  ansible.builtin.assert:
+    that:
+    - k8s_kubeconfig|string|length > 0
+    fail_msg: The KUBECONFIG environment variable must be set
+
+# Go...
+
+- name: Wipe the stack
+  module_defaults:
+    group/k8s:
+      kubeconfig: "{{ k8s_kubeconfig }}"
+  block:
+  - name: Get expected namespace ({{ stack_namespace }})
+    kubernetes.core.k8s_info:
+      kind: Namespace
+      name: "{{ stack_namespace }}"
+    register: ns_result
+
+  - name: Wipe (if namespace exists)
+    ansible.builtin.include_tasks: wipe-stack.yaml
+    when: ns_result.resources | length > 0
+
+  # Done.

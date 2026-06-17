@@ -1,0 +1,14 @@
+---
+kind: Service
+apiVersion: v1
+metadata:
+  name: stack
+  namespace: {{ stack_namespace }}
+  labels:
+    name: stack
+spec:
+  selector:
+    name: stack
+  ports:
+  - name: http
+    port: 80

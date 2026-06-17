@@ -1,0 +1,8 @@
+---
+
+- name: Deploy the Fragalysis Stack
+  hosts: localhost
+  tasks:
+  - name: Run the fragalysis_stack role
+    ansible.builtin.include_role:
+      name: fragalysis_stack

@@ -1,0 +1,295 @@
+---
+
+# The stack image you want to deploy,
+# consisting of a (public) container registry,
+# image, image tag and replicas...
+stack_image_registry: docker.io
+stack_image: xchem/fragalysis-stack
+stack_image_tag: latest
+# Stack and worker replicas (Pods)
+stack_replicas: 1
+worker_replicas: 1
+# Stack and worker concurrency (Processes/threads)
+stack_concurrency: 4
+worker_concurrency: 4
+
+# A 'see also' message - issued by the front-end if set.
+# Used to populate the stack's SEE_ALSO_MESSAGE environment variable,
+# and typically used to to redirect the user to the production stack.
+stack_see_also_message: ""
+
+# A warning message - issued by the front-end if set.
+# Used to populate the stack's TARGET_WARNING_MESSAGE environment variable.
+stack_target_warning_message: ""
+
+# The deployment mode (one of 'production' or 'development')
+stack_deployment_mode: "development"
+# Authenticate uploads (typically yes)
+# Can be set to no in development mode.
+stack_authenticate_upload: yes
+# Any forced API errors ("infections")?
+# A comma-separated list of infection names
+stack_infections: ""
+
+# Run the celery 'beat' Pod?
+enable_beat_pod: yes
+
+# Stack image pull policy?
+# If not set it's automatic.
+stack_image_pull_policy:
+# The Sentry SDK DSN - passed in via the environment variable
+# 'FRAGALYSIS_BACKEND_SENTRY_DNS'
+# If blank sentry is not initialised.
+stack_backend_sentry_dsn: ""
+
+# We also use BusyBox as an init-container
+# so we need to allow redirection of its registry.
+busybox_image_registry: docker.io
+
+# A boolean, set if the stack deployment is for a developer
+# i.e. not a PRODUCTION deployment.
+# Developer stacks get their own auto-generated namespaces
+# and ingress routes. Non-developer stacks need an explicit
+# 'stack_namespace' and 'stack_hostname'.
+stack_is_for_developer: yes
+
+# The namespace to deploy the stack to.
+# Not defined for user stacks  where the namespace will be created
+# from the user (developer) ID and will be 'stack-{{ id }}-{{ stack_name }}'.
+stack_namespace: ""
+
+# The hostname that will be used to connect to the stacks.
+# This will be a URL directed at the cluster.
+#
+# Developer stacks will prepend a unique value to to make the route
+# specific for that developer they wil get something like
+# https://{{ id }}-{{ stack_name }}.{{ stack_hostname }}.
+#
+# Production stacks must provide an explicit `stack_hostname` here,
+# i.e. 'fragalysis.diamond.ac.uk'
+stack_hostname: ""
+stack_validate_hostname_certificate: yes
+
+# A URL for a prior/legacy stack.
+# If set this is passed to the frontend via the DJANGO_CONTEXT.
+stack_legacy_url: ""
+
+# A symbolic name for your stack, used if you do not provide your own
+# 'stack_namespace' value. When you do not provide a namespace the stack
+# namespace you're given is automatic and based on your AWX user ID.
+# The 'stack_name' allows you to deploy more than one
+# stack at a time, each with its own name using the same user ID.
+#
+# The name is used to further distinguish the https route to the application
+# as your application will be available using the hostname: -
+#
+#   https://{{ id }}-{{ stack_name }}.{{ stack_hostname }}
+#
+# The name can only consist of lower-case letters.
+stack_name: default
+
+# Build the XChem Database?
+# If 'yes' then you will need to ensure that you provide suitable values for
+# the following variables, used to create the xchem secrets, otherwise the
+# stack will fail to start: -
+# - XCHEM_NAME
+# - XCHEM_USER
+# - XCHEM_PASSWORD
+# - XCHEM_HOST
+# - XCHEM_PORT
+# These must be supplied at run time (e.g. via '-e' or an AWX credential/survey).
+stack_build_xcdb: no
+
+# When true, this starts the stack in debug mode.
+# It should be False on production.
+stack_debug_fragalysis: no
+stack_disable_logging_framework: no
+
+# Keycloak oidc variables
+# If the secret is defined, the other variables are expected
+# Environment variables in the stack pod are only set up if the secret is defined.
+stack_oidc_rp_client_secret: ""
+stack_oidc_rp_client_id: fragalysis-local
+stack_oidc_keycloak_realm: https://keycloak.xchem-dev.diamond.ac.uk/auth/realms/xchem
+stack_oidc_renew_id_token_expiry_minutes: 210
+
+# Override method to also log user out from Keycloak as well as Django.
+# If desired, this should be set to "fragalysis.views.keycloak_logout"
+stack_oidc_op_logout_url_method: ""
+
+# Django API cache
+stack_cache_enabled: no
+# If you do not define a cache timeout the default is used (typically 28 days)
+stack_cache_middleware_timeout_minutes: ""
+
+# Email backend variables
+# If stack_email_user is set, then a full email configuration should be defined as follows:
+# e.g. For a gmail configuration
+# stack_email_host: smtp.gmail.com
+# stack_email_use_tls: True
+# stack_email_port: 587
+# stack_email_user: fragalysis@gmail.com
+# stack_email_password: <password>
+#
+# Or for an sftc smtp configutaion
+# stack_email_host: exchsmtp.stfc.ac.uk
+# stack_email_use_tls: False
+# stack_email_port: 25
+# stack_email_user: fragalysis@donotreply.com
+# stack_email_password:
+#
+# Note that in Django if stack_email_password is set, then the stack_email_user will be authenticated,
+# otherwise no authentication takes place, but stack_email_user can be used as the from address.
+stack_email_user: ""
+
+# A variable that can be used to avoid deploying the stack.
+# This can be used to pre-condition the Database.
+stack_skip_deploy: no
+
+# A comma-separated list of Public Target Access Strings.
+# If set it is used to set the stack's PUBLIC_TAS environment variable.
+stack_public_tas: ""
+
+# Do we disable checks for proposal membership?
+# This defeats the security checks for proposal membership
+# by setting the Pod environment variable DISABLE_RESTRICT_PROPOSALS_TO_MEMBERSHIP.
+# This is not available when the stack_deployment_mode is 'production'
+stack_disable_restrict_proposals_to_membership: no
+
+# Variables controlling the deployed database image.
+# Define a database host if a pre-existing database is to be used.
+# If blank ('') a database will be created specifically for the stack.
+database_host: ""
+# If you're not using an externally provisioned (pre-existing database)
+# then you must provide a storage class for the data volume that will be
+# created, unless the default storage class will suffice
+# (represented by a blank, single space).
+database_vol_storageclass: " "
+
+# Database backups
+database_bu_state: absent
+database_bu_image_tag: "15.7"
+database_bu_vol_storageclass: " "
+database_bu_vol_size_g: 4
+# Hourly backups every hour at 51 minutes past the hour
+database_bu_hourly_schedule: "51 * * * *"
+database_bu_hourly_count: 24
+# Daily backup collection at 00:21
+database_bu_daily_schedule: "21 0 * * *"
+database_bu_daily_count: 7
+# Weekly backup collection on Sundays at 00:31
+database_bu_weekly_schedule: "31 0 * * 0"
+database_bu_weekly_count: 4
+# Monthly backup collection on the 8th of every Month at 00:41
+database_bu_monthly_schedule: "41 0 8 * *"
+database_bu_monthly_count: 12
+# Set the following to rsync the backups to a central server.
+# If set you must define: -
+#   stack_backup_rsync_host
+#   stack_backup_rsync_path
+#   stack_backup_rsync_user
+#   stack_backup_rsync_pass
+# (supply at run time, e.g. via '-e' or an AWX credential/survey)
+database_bu_use_rsync: no
+# rclone configuration.
+# rclone is used to copy backups to an S3 bucket
+# if 'database_bu_rclone_bucket_and_path' is set
+# If set you must define: -
+#   database_bu_rclone_s3_endpoint
+#   database_bu_rclone_s3_provider
+#   database_bu_rclone_s3_access_key_id
+#   database_bu_rclone_s3_secret_access_key
+#   database_bu_rclone_s3_default_region
+# (supply at run time, e.g. via '-e' or an AWX credential/survey)
+database_bu_rclone_bucket_and_path: ""
+database_bu_rclone_s3_endpoint: ""
+database_bu_rclone_s3_provider: ""
+database_bu_rclone_s3_access_key_id: ""
+database_bu_rclone_s3_secret_access_key: ""
+database_bu_rclone_s3_default_region: ""
+
+# PgBouncer configuration.
+# Set the tag to a blank string to avoid deployment.
+pgbouncer_image: xchem/pgbouncer
+pgbouncer_tag: "1.25.1"
+
+# Media backups?
+media_bu_state: absent
+media_bu_image_tag: "3.1.1"
+media_bu_rclone_bucket: ""
+media_bu_schedule: "4 3 * * * "
+
+# Populate the DB init file?
+# Typically set to 'no' when the DB is to be used for recovery.
+database_use_init_file: yes
+
+# The redis Pod
+# If the size is zero no volume is created and persistence is disabled
+redis_vol_storageclass: " "
+redis_vol_size_g: 0
+
+# Squonk/2 material, unset by default.
+# User can provide UI, DM and AS API URLs.
+# There are URLs to the services, i.e. https://example.com/data-manager-api/api
+stack_squonk2_asapi_url: ""
+stack_squonk2_dmapi_url: ""
+stack_squonk2_ui_url: ""
+stack_squonk2_org_owner: fragalysis
+stack_squonk2_org_owner_password: ""
+stack_squonk2_org_uuid: ""
+stack_squonk2_product_flavour: SILVER
+stack_squonk2_slug: ""
+stack_squonk2_unit_billing_day: 3
+# The Client ID (known to Keycloak)
+stack_oidc_as_client_id: ""
+stack_oidc_dm_client_id: ""
+
+# Maximum download concurrency (the task concurrency to reject new Downloads)
+# Set to '0' to disable this check.
+stack_max_download_concurrency_percent: 80
+
+# Stack service status reporting.
+# A colon-separated list of service IDs whose status is expected to be returned
+# by the service status API. This is provided to the container via the
+# ENABLE_SERVICE_STATUS environment variable.
+#
+# A full set of values would include:
+#   discourse:fragmentation_graph:ispyb:keycloak:squonk
+stack_enable_service_status: "discourse:fragmentation_graph:ispyb:keycloak:squonk"
+
+# Logging framework level
+# A python logging level string
+stack_logging_framework_root_level: INFO
+
+# Wait for the neo4j graph to become ready before starting the stack?
+stack_wait_for_graph: yes
+
+# Metrics?
+stack_deploy_metrics: no
+
+# URL format strings for documentation.
+# See the backend's settings.py for documentation.
+stack_documentation_url_format_string: ""
+fe_documentation_url_format_string: ""
+be_documentation_url_format_string: ""
+
+# The acceptable TAS string format
+stack_tas_regex: "^(lb\\d{5})(-(\\d+)){0,1}$"
+stack_tas_regex_error_msg: >-
+  Must begin "lb" followed by 5 digits, optionally followed by a hyphen and a number.
+
+# Target Access Authentication variables -----------------------------------------------
+# Supply these at run time (e.g. via '-e' or an AWX credential/survey).
+# They are defined here for clarity.
+
+stack_ta_auth_service: ""
+stack_ta_auth_query_key: ""
+
+# AWX Credentials -------------------------------------------------------------
+# The following variables can be provided by AWX credentials,
+# so their variables names are not to be altered. If not using AWX
+# to inject values you can provide your own.
+
+# The Graph instance to connect to.
+graph_hostname: ""
+graph_password: ""

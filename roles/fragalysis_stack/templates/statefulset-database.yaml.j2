@@ -1,0 +1,157 @@
+---
+kind: StatefulSet
+apiVersion: apps/v1
+metadata:
+  name: database
+  namespace: {{ stack_namespace }}
+spec:
+  revisionHistoryLimit: 10
+  selector:
+    matchLabels:
+      name: database
+  serviceName: database
+  template:
+    metadata:
+      name: database
+      labels:
+        name: database
+    spec:
+      serviceAccountName: stack
+
+      # Pod Node Affinity.
+      # Prefer 'core' before 'application'
+      # then try anything other than 'worker before finally trying 'worker'
+      affinity:
+        nodeAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+          - weight: 40
+            preference:
+              matchExpressions:
+              - key: informaticsmatters.com/purpose-core
+                operator: Exists
+          - weight: 30
+            preference:
+              matchExpressions:
+              - key: informaticsmatters.com/purpose-application
+                operator: Exists
+          - weight: 20
+            preference:
+              matchExpressions:
+              - key: informaticsmatters.com/purpose-worker
+                operator: DoesNotExist
+
+      # To access the mounted database volume
+      # we set the security context's fsGroup
+      # to the group that will be using the volume
+      # In this case it's the postgres group in the container
+      # (obtained empirically)
+      securityContext:
+        fsGroup: 26
+
+{% if all_image_preset_pullsecret_name|string|length > 0 %}
+      imagePullSecrets:
+      - name: {{ all_image_preset_pullsecret_name }}
+{% endif %}
+
+#      initContainers:
+#      - name: copy-conf
+#        image: {{ busybox_image_registry }}/library/busybox:1.28.0
+#        command:
+#        - '/bin/sh'
+#        - '-c'
+#        - 'mkdir -p /var/lib/postgresql/data/pgdata && cp /tmp/postgresql.conf /var/lib/postgresql/data/pgdata'
+#        volumeMounts:
+#        # Persistent volume for data
+#        - mountPath: /var/lib/postgresql/data
+#          name: database-volume
+#        - mountPath: /tmp/postgresql.conf
+#          name: postgres-conf
+#          subPath: postgresql.conf
+#          readOnly: true
+
+      containers:
+      - name: database
+        image: '{{ database_image_registry }}/{{ database_image }}:{{ database_image_tag }}'
+        imagePullPolicy: IfNotPresent
+        terminationMessagePolicy: FallbackToLogsOnError
+        ports:
+        - containerPort: 5432
+        resources:
+          limits:
+            cpu: {{ database_cpu_limit }}
+            memory: {{ database_mem_limit }}
+          requests:
+            cpu: {{ database_cpu_request }}
+            memory: {{ database_mem_request }}
+        readinessProbe:
+          # Wait 30 seconds
+          # then fail after more than 2 minutes of failures...
+          initialDelaySeconds: 30
+          failureThreshold: 9
+          periodSeconds: 15
+          timeoutSeconds: 2
+          exec:
+            command:
+            - "/bin/sh"
+            - "-i"
+            - "-c"
+            - pg_isready -h 127.0.0.1 -p 5432 -U admin -q
+        livenessProbe:
+          # Wait 30 seconds
+          # then fail after more than 2 minutes of failures...
+          initialDelaySeconds: 30
+          failureThreshold: 9
+          periodSeconds: 15
+          timeoutSeconds: 2
+          exec:
+            command:
+            - "/bin/sh"
+            - "-i"
+            - "-c"
+            - pg_isready -h 127.0.0.1 -p 5432 -U admin -q
+        volumeMounts:
+{% if database_use_init_file|bool %}
+        # Database initialisation scripts
+        # It's here we create additional - 'out-of-the-box' users and databases
+        - mountPath: /docker-entrypoint-initdb.d/01-init.sh
+          name: postgres-init
+          subPath: 01-init.sh
+          readOnly: true
+{% endif %}
+        # Persistent volume for data
+        - mountPath: /var/lib/postgresql/data
+          name: database-volume
+        env:
+        # PGDATA - the location of persisted database files.
+        # Normally a sub-directory of '/var/lib/postgresql/data'.
+        # The PVC is mounted at '/var/lib/postgresql' and we use
+        # PGDATA to identify a sub-directory in the mount.
+        # If we don't postres fails to start with the error: -
+        #
+        #   initdb: directory "/var/lib/postgresql/data" exists but is not empty
+        #   It contains a lost+found directory, perhaps due to it being a mount point.
+        #   Using a mount point directly as the data directory is not recommended.
+        #   Create a subdirectory under the mount point.
+        - name: PGDATA
+          value: /var/lib/postgresql/data/pgdata
+        # Admin/superuser name and password
+        - name: POSTGRES_USER
+          value: {{ database_root_user }}
+        - name: POSTGRES_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: database
+              key: root_password
+
+      volumes:
+{% if database_use_init_file|bool %}
+      - name: postgres-init
+        configMap:
+          name: postgres-init
+{% endif %}
+      - name: postgres-conf
+        configMap:
+          name: postgres-conf
+      - name: database-volume
+        persistentVolumeClaim:
+          claimName: database

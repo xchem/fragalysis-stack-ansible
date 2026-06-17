@@ -1,0 +1,68 @@
+---
+# Various deployment variables considered mandatory.
+# The 'prep' stage will have asserted that variables
+# required for all plays have been set. Here we're
+# just concerned with those required to play.
+
+- name: Assert database variables
+  ansible.builtin.assert:
+    that:
+    - database_root_password|string != 'SetMe'
+    - database_user_password|string != 'SetMe'
+
+- name: Assert stack variables
+  ansible.builtin.assert:
+    that:
+    - stack_hostname|string|length > 0
+    - stack_replicas|int > 0
+  when: not stack_skip_deploy|bool
+
+# Create the namespace (project) and other key bits.
+# Everything, except the graph at the moment goes into
+# a dedicated namespace. When done we simply delete the namespace.
+
+- name: Check the namespace
+  ansible.builtin.assert:
+    that:
+    - stack_namespace|string|length > 0
+
+- name: Creating namespace '{{ stack_namespace }}'
+  kubernetes.core.k8s:
+    definition: "{{ lookup('template', item) }}"
+    wait: yes
+  loop:
+  - namespace.yaml.j2
+  - serviceaccount.yaml.j2
+
+# Some common secrets
+
+- name: Write backup rsync secrets
+  kubernetes.core.k8s:
+    definition: "{{ lookup('template', 'secret-backup-rsync.yaml.j2') }}"
+    wait: yes
+  when: database_bu_use_rsync|bool
+
+- name: Write backup rclone secrets
+  kubernetes.core.k8s:
+    definition: "{{ lookup('template', 'secret-backup-rclone.yaml.j2') }}"
+    wait: yes
+  when: (database_bu_rclone_bucket_and_path|string|length > 0) or (media_bu_rclone_bucket|string|length > 0)
+
+# Deploy a database?
+# Yes if the user hasn't set an explicit host
+# If the user defines a database_host they must provide
+# additional material but we're not checking that here.
+
+- name: Deploy the database
+  ansible.builtin.import_tasks: deploy-database.yaml
+  when: database_host|string|length == 0
+
+# Now (optionally) deploy redis and the stack
+
+- name: Deploy the stack
+  when: not stack_skip_deploy | bool
+  block:
+  - name: Deploy redis
+    ansible.builtin.import_tasks: deploy-redis.yaml
+  - name: Deploy the stack
+    ansible.builtin.import_tasks: deploy-stack.yaml

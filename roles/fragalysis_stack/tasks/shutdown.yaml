@@ -1,0 +1,35 @@
+---
+# Tasks required to 'shutdown' a deployed version of Fragalysis.
+# This task removes the stack but leaves the database intact.
+# It is used as a precursor to a database recovery.
+#
+# This playbook first ensures that the Fragalysis namespace exists
+# and that an existing deployment exists - the user is first supposed
+# to have deployed the stack before shutting it down.
+
+- name: Prepare
+  ansible.builtin.include_tasks: prep.yaml
+- name: Assert authentication
+  ansible.builtin.assert:
+    that:
+    - k8s_kubeconfig|string|length > 0
+    fail_msg: The KUBECONFIG environment variable must be set
+
+# Go...
+
+- name: Shutdown the stack
+  module_defaults:
+    group/k8s:
+      kubeconfig: "{{ k8s_kubeconfig }}"
+  block:
+  - name: Get expected namespace ({{ stack_namespace }})
+    kubernetes.core.k8s_info:
+      kind: Namespace
+      name: "{{ stack_namespace }}"
+    register: ns_result
+
+  - name: Shutdown (if namespace exists)
+    ansible.builtin.include_tasks: shutdown-stack.yaml
+    when: ns_result.resources | length > 0
+
+  # Done.

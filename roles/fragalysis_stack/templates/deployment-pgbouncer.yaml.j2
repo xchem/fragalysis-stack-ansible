@@ -1,0 +1,65 @@
+---
+kind: Deployment
+apiVersion: apps/v1
+metadata:
+  name: pgbouncer
+  namespace: {{ stack_namespace }}
+  labels:
+    app: pgbouncer
+spec:
+  revisionHistoryLimit: 10
+  strategy:
+    rollingUpdate:
+      maxUnavailable: 0  # Avoid Terminating and ContainerCreating at the same time
+  selector:
+    matchLabels:
+      app: pgbouncer
+  template:
+    metadata:
+      labels:
+        app: pgbouncer
+    spec:
+      containers:
+      - name: pgbouncer
+        image: {{ pgbouncer_image }}:{{ pgbouncer_tag }}
+        imagePullPolicy: IfNotPresent
+        ports:
+        - containerPort: 5432
+        resources:
+          limits:
+            # PG Bouncer is single-threaded.
+            # Having more than 1 core is pointless.
+            cpu: '{{ pgbouncer_cpu_limit }}'
+            memory: {{ pgbouncer_mem_limit }}
+          requests:
+            cpu: '{{ pgbouncer_cpu_request }}'
+            memory: {{ pgbouncer_mem_request }}
+        envFrom:
+        - secretRef:
+            name: pgbouncer
+        env:
+        - name: DEFAULT_POOL_SIZE
+          value: '{{ pgbouncer_default_pool_size }}'
+        - name: LOG_CONNECTIONS
+          value: '{{ pgbouncer_log_connections }}'
+        - name: LOG_DISCONNECTIONS
+          value: '{{ pgbouncer_log_disconnections }}'
+        - name: MAX_CLIENT_CONN
+          value: '{{ pgbouncer_max_client_conn }}'
+        - name: MAX_DB_CONNECTIONS
+          value: '{{ pgbouncer_max_db_connections }}'
+        - name: MIN_POOL_SIZE
+          value: '{{ pgbouncer_min_pool_size }}'
+        livenessProbe:
+          tcpSocket:
+            port: 5432
+          periodSeconds: 60
+        lifecycle:
+          preStop:
+            exec:
+              # Allow existing queries clients to complete within 120 seconds
+              command: ["/bin/sh", "-c", "killall -INT pgbouncer && sleep 120"]
+        securityContext:
+          allowPrivilegeEscalation: false
+          capabilities:
+            drop: ['all']

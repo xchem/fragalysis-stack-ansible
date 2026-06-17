@@ -1,0 +1,16 @@
+---
+# Update a deployed stack version.
+# Here we rely on everything having already been deployed,
+# all we do is the simplest (fastest) that has to be done - and that
+# is to alter the stack application...
+
+- name: Prepare
+  ansible.builtin.include_tasks: prep.yaml
+- name: Deploy stack
+  kubernetes.core.k8s:
+    definition: "{{ lookup('template', item) }}"
+    kubeconfig: "{{ k8s_kubeconfig }}"
+  loop:
+  - deployment-beat.yaml.j2
+  - statefulset-worker.yaml.j2
+  - statefulset-stack.yaml.j2

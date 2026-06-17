@@ -1,0 +1,18 @@
+---
+
+# Rules disabled because they conflict with this project's YAML house style:
+#
+# - yaml[indentation]: ansible-lint wants list items ('-') indented beneath
+#   their key, but our convention aligns them with the key (no extra indent).
+# - yaml[truthy]: we deliberately write booleans as 'yes'/'no' rather than
+#   'true'/'false'.
+#
+# And one rule disabled to preserve the role's established variable interface:
+#
+# - var-naming[no-role-prefix]: the role's variables (stack_*, database_*, etc.)
+#   are the documented interface used by AWX job templates and surveys. Prefixing
+#   them all with 'fragalysis_stack_' would break that interface for no real gain.
+skip_list:
+- yaml[indentation]
+- yaml[truthy]
+- var-naming[no-role-prefix]

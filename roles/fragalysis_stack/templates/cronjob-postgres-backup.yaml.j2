@@ -1,0 +1,335 @@
+---
+# CronJob for the 'hourly' backups
+# Only the hourly backup needs to provide rsync/rclone material.
+# Data is replicated using these tools during the hourly CronJob,
+# not daily, weekly, or monthly.
+kind: CronJob
+apiVersion: batch/v1
+metadata:
+  name: postgres-backup-hourly
+  namespace: {{ stack_namespace }}
+spec:
+  schedule: '{{ database_bu_hourly_schedule }}'
+  successfulJobsHistoryLimit: 1
+  startingDeadlineSeconds: 180
+  concurrencyPolicy: Forbid
+  jobTemplate:
+    spec:
+      template:
+        metadata:
+          labels:
+            name: postgres-backup
+        spec:
+          serviceAccountName: stack
+
+          # A 'preferred' (not guaranteed)
+          # node selection affinity...
+          affinity:
+            nodeAffinity:
+              preferredDuringSchedulingIgnoredDuringExecution:
+              - weight: 40
+                preference:
+                  matchExpressions:
+                  - key: informaticsmatters.com/purpose-application
+                    operator: Exists
+
+{% if all_image_preset_pullsecret_name|string|length > 0 %}
+          imagePullSecrets:
+          - name: {{ all_image_preset_pullsecret_name }}
+{% endif %}
+
+          containers:
+          - image: informaticsmatters/sql-backup:{{ database_bu_image_tag }}
+            name: postgres-backup
+            imagePullPolicy: IfNotPresent
+            terminationMessagePolicy: FallbackToLogsOnError
+            resources:
+              limits:
+                cpu: 1
+                memory: 512Mi
+              requests:
+                cpu: 100m
+                memory: 512Mi
+            env:
+            - name: BACKUP_TYPE
+              value: hourly
+            - name: BACKUP_COUNT
+              value: '{{ database_bu_hourly_count }}'
+            - name: PGHOST
+              value: database
+            - name: PGUSER
+              value: admin
+            - name: PGADMINPASS
+              valueFrom:
+                secretKeyRef:
+                  name: database
+                  key: root_password
+{% if database_bu_use_rsync %}
+            - name: RSYNC_HOST
+              valueFrom:
+                secretKeyRef:
+                  name: backup-rsync
+                  key: host
+            - name: RSYNC_PATH
+              valueFrom:
+                secretKeyRef:
+                  name: backup-rsync
+                  key: path
+            - name: RSYNC_USER
+              valueFrom:
+                secretKeyRef:
+                  name: backup-rsync
+                  key: user
+            - name: RSYNC_PASS
+              valueFrom:
+                secretKeyRef:
+                  name: backup-rsync
+                  key: pass
+{% endif %}
+{% if database_bu_rclone_bucket_and_path %}
+            - name: USE_RCLONE
+              value: 'true'
+            - name: USE_RCLONE_BUCKET_AND_PATH
+              value: '{{ database_bu_rclone_bucket_and_path }}'
+            - name: RCLONE_S3_ENDPOINT
+              valueFrom:
+                secretKeyRef:
+                  name: backup-rclone
+                  key: s3_endpoint
+            - name: RCLONE_S3_PROVIDER
+              valueFrom:
+                secretKeyRef:
+                  name: backup-rclone
+                  key: s3_provider
+            - name: AWS_ACCESS_KEY_ID
+              valueFrom:
+                secretKeyRef:
+                  name: backup-rclone
+                  key: s3_access_key_id
+            - name: AWS_SECRET_ACCESS_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: backup-rclone
+                  key: s3_secret_access_key
+            - name: AWS_DEFAULT_REGION
+              valueFrom:
+                secretKeyRef:
+                  name: backup-rclone
+                  key: s3_default_region
+{% endif %}
+            volumeMounts:
+            - name: backup-data
+              mountPath: /backup
+
+          volumes:
+          - name: backup-data
+            persistentVolumeClaim:
+              claimName: database-backup
+          restartPolicy: Never
+{% if database_bu_daily_schedule %}
+---
+# CronJob for the 'daily' backups
+kind: CronJob
+apiVersion: batch/v1
+metadata:
+  name: postgres-backup-daily
+  namespace: {{ stack_namespace }}
+spec:
+  schedule: '{{ database_bu_daily_schedule }}'
+  successfulJobsHistoryLimit: 1
+  startingDeadlineSeconds: 180
+  concurrencyPolicy: Forbid
+  jobTemplate:
+    spec:
+      template:
+        metadata:
+          labels:
+            name: postgres-backup
+        spec:
+          serviceAccountName: stack
+
+          # A 'preferred' (not guaranteed)
+          # node selection affinity...
+          affinity:
+            nodeAffinity:
+              preferredDuringSchedulingIgnoredDuringExecution:
+              - weight: 40
+                preference:
+                  matchExpressions:
+                  - key: informaticsmatters.com/purpose-application
+                    operator: Exists
+
+{% if all_image_preset_pullsecret_name|string|length > 0 %}
+          imagePullSecrets:
+          - name: {{ all_image_preset_pullsecret_name }}
+{% endif %}
+
+          containers:
+          - image: informaticsmatters/sql-backup:{{ database_bu_image_tag }}
+            name: postgres-backup
+            imagePullPolicy: IfNotPresent
+            terminationMessagePolicy: FallbackToLogsOnError
+            resources:
+              limits:
+                cpu: 1
+                memory: 512Mi
+              requests:
+                cpu: 100m
+                memory: 512Mi
+            env:
+            - name: BACKUP_TYPE
+              value: daily
+            - name: BACKUP_COUNT
+              value: '{{ database_bu_daily_count }}'
+            - name: BACKUP_PRIOR_TYPE
+              value: hourly
+            - name: BACKUP_PRIOR_COUNT
+              value: '{{ database_bu_hourly_count }}'
+            volumeMounts:
+            - name: backup-data
+              mountPath: /backup
+
+          volumes:
+          - name: backup-data
+            persistentVolumeClaim:
+              claimName: database-backup
+          restartPolicy: Never
+{% endif %}
+{% if database_bu_weekly_schedule %}
+---
+# CronJob for the 'weekly' backups
+kind: CronJob
+apiVersion: batch/v1
+metadata:
+  name: postgres-backup-weekly
+  namespace: {{ stack_namespace }}
+spec:
+  schedule: '{{ database_bu_weekly_schedule }}'
+  successfulJobsHistoryLimit: 1
+  startingDeadlineSeconds: 180
+  concurrencyPolicy: Forbid
+  jobTemplate:
+    spec:
+      template:
+        metadata:
+          labels:
+            name: postgres-backup
+        spec:
+          serviceAccountName: stack
+
+          # A 'preferred' (not guaranteed)
+          # node selection affinity...
+          affinity:
+            nodeAffinity:
+              preferredDuringSchedulingIgnoredDuringExecution:
+              - weight: 40
+                preference:
+                  matchExpressions:
+                  - key: informaticsmatters.com/purpose-application
+                    operator: Exists
+
+{% if all_image_preset_pullsecret_name|string|length > 0 %}
+          imagePullSecrets:
+          - name: {{ all_image_preset_pullsecret_name }}
+{% endif %}
+
+          containers:
+          - image: informaticsmatters/sql-backup:{{ database_bu_image_tag }}
+            name: postgres-backup
+            imagePullPolicy: IfNotPresent
+            terminationMessagePolicy: FallbackToLogsOnError
+            resources:
+              limits:
+                cpu: 1
+                memory: 512Mi
+              requests:
+                cpu: 100m
+                memory: 512Mi
+            env:
+            - name: BACKUP_TYPE
+              value: weekly
+            - name: BACKUP_COUNT
+              value: '{{ database_bu_weekly_count }}'
+            - name: BACKUP_PRIOR_TYPE
+              value: daily
+            - name: BACKUP_PRIOR_COUNT
+              value: '{{ database_bu_daily_count }}'
+            volumeMounts:
+            - name: backup-data
+              mountPath: /backup
+
+          volumes:
+          - name: backup-data
+            persistentVolumeClaim:
+              claimName: database-backup
+          restartPolicy: Never
+{% endif %}
+{% if database_bu_monthly_schedule %}
+---
+# CronJob for the 'monthly' backups
+kind: CronJob
+apiVersion: batch/v1
+metadata:
+  name: postgres-backup-monthly
+  namespace: {{ stack_namespace }}
+spec:
+  schedule: '{{ database_bu_monthly_schedule }}'
+  successfulJobsHistoryLimit: 1
+  startingDeadlineSeconds: 180
+  concurrencyPolicy: Forbid
+  jobTemplate:
+    spec:
+      template:
+        metadata:
+          labels:
+            name: postgres-backup
+        spec:
+          serviceAccountName: stack
+
+          # A 'preferred' (not guaranteed)
+          # node selection affinity...
+          affinity:
+            nodeAffinity:
+              preferredDuringSchedulingIgnoredDuringExecution:
+              - weight: 40
+                preference:
+                  matchExpressions:
+                  - key: informaticsmatters.com/purpose-application
+                    operator: Exists
+
+{% if all_image_preset_pullsecret_name|string|length > 0 %}
+          imagePullSecrets:
+          - name: {{ all_image_preset_pullsecret_name }}
+{% endif %}
+
+          containers:
+          - image: informaticsmatters/sql-backup:{{ database_bu_image_tag }}
+            name: postgres-backup
+            imagePullPolicy: IfNotPresent
+            terminationMessagePolicy: FallbackToLogsOnError
+            resources:
+              limits:
+                cpu: 1
+                memory: 512Mi
+              requests:
+                cpu: 100m
+                memory: 512Mi
+            env:
+            - name: BACKUP_TYPE
+              value: monthly
+            - name: BACKUP_COUNT
+              value: '{{ database_bu_monthly_count }}'
+            - name: BACKUP_PRIOR_TYPE
+              value: weekly
+            - name: BACKUP_PRIOR_COUNT
+              value: '{{ database_bu_weekly_count }}'
+            volumeMounts:
+            - name: backup-data
+              mountPath: /backup
+
+          volumes:
+          - name: backup-data
+            persistentVolumeClaim:
+              claimName: database-backup
+          restartPolicy: Never
+{% endif %}

@@ -1,0 +1,20 @@
+---
+kind: ServiceMonitor
+apiVersion: monitoring.coreos.com/v1
+metadata:
+  name: fragalysis-stack
+  namespace: {{ stack_namespace }}
+spec:
+  # A selector for the Public API Service.
+  # The service to be scraped.
+  selector:
+    matchLabels:
+      name: stack
+  namespaceSelector:
+    matchNames:
+    - {{ stack_namespace }}
+  # The endpoint (port name)
+  # and the scraping interval
+  endpoints:
+  - port: http
+    interval: 60s

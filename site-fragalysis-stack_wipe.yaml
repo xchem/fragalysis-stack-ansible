@@ -1,0 +1,9 @@
+---
+
+- name: Wipe the Fragalysis Stack
+  hosts: localhost
+  tasks:
+  - name: Run the fragalysis_stack role (wipe)
+    ansible.builtin.include_role:
+      name: fragalysis_stack
+      tasks_from: wipe.yaml

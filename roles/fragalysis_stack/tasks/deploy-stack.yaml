@@ -1,0 +1,196 @@
+---
+- name: Get media volume
+  kubernetes.core.k8s_info:
+    kind: PersistentVolumeClaim
+    name: media
+    namespace: "{{ stack_namespace }}"
+  register: media_pvc_result
+
+- name: Assert media volume is absent
+  ansible.builtin.assert:
+    that: media_pvc_result.resources|length == 0
+    fail_msg: >-
+      The media volume exists but shouldn't
+  when: not stack_allow_pre_existing_media_volume|bool
+
+- name: Create stack media volume claim
+  kubernetes.core.k8s:
+    definition: "{{ lookup('template', 'pvc-media.yaml.j2') }}"
+    wait: yes
+    wait_timeout: "{{ wait_timeout }}"
+  when: media_pvc_result.resources|length == 0
+
+# Best practice ... wait for the PVC to bind.
+# e.g. wait until resources[0].status.phase == Bound (initially Pending)
+
+- name: Wait for stack media volume claim to bind
+  kubernetes.core.k8s_info:
+    kind: PersistentVolumeClaim
+    name: media
+    namespace: "{{ stack_namespace }}"
+  register: bind_result
+  until: bind_result.resources[0].status.phase == 'Bound'
+  delay: 5
+  retries: "{{ (bind_timeout | int / 5) | int }}"
+  when: wait_for_bind|bool
+
+# Deploy stack secrets.
+#
+# These come in three forms: -
+# - Secrets for the app itself (django material)
+# - Secrets for the Diamond ISPyB service
+# - Secrets for the xchem user
+
+# App (django) secrets...
+
+- name: Check django secrets
+  kubernetes.core.k8s_info:
+    kind: Secret
+    api_version: v1
+    namespace: "{{ stack_namespace }}"
+    name: django
+  register: s_result
+
+- name: Set (new) django secrets
+  when: s_result.resources|length == 0
+  block:
+  - name: Set django secret facts (new)
+    ansible.builtin.set_fact:
+      stack_django_secret_key_fact: "{{ stack_django_secret_key }}"
+      stack_django_superuser_password_fact: "{{ stack_django_superuser_password }}"
+
+  - name: Write django secrets
+    kubernetes.core.k8s:
+      definition: "{{ lookup('template', 'secret-django.yaml.j2') }}"
+      wait: yes
+
+# xchem secrets... (if defined and not set to 'SetMe')
+- name: Set xchem secrets
+  when:
+  - stack_xchem_host is defined
+  - stack_xchem_host|string != 'SetMe'
+  block:
+  # Make sure the xchem variables have been supplied.
+
+  - name: Assert xchem secrets are defined
+    ansible.builtin.assert:
+      that:
+      - stack_xchem_user is defined
+      - stack_xchem_password is defined
+      - stack_xchem_name is defined
+      - stack_xchem_host is defined
+      - stack_xchem_port is defined
+
+  - name: Set xchem secret facts (new)
+    ansible.builtin.set_fact:
+      stack_xchem_user_fact: "{{ stack_xchem_user }}"
+      stack_xchem_password_fact: "{{ stack_xchem_password }}"
+      stack_xchem_name_fact: "{{ stack_xchem_name }}"
+      stack_xchem_host_fact: "{{ stack_xchem_host }}"
+      stack_xchem_port_fact: "{{ stack_xchem_port }}"
+
+  - name: Write xchem secrets
+    kubernetes.core.k8s:
+      definition: "{{ lookup('template', 'secret-xchem.yaml.j2') }}"
+      wait: yes
+
+# Now the stack, its service and ingress
+# and give the user their stack URL.
+
+- name: Assert stack replicas
+  ansible.builtin.assert:
+    that: stack_replicas|int > 0
+
+# Set the stack hostname, which will either be just the hostname of the
+# stack (if the namespace has been defined) or the hostname plus
+# the user name and their chosen stack name.
+
+- name: Set the stack's URL (developer)
+  ansible.builtin.set_fact:
+    stack_url: "fragalysis-{{ tower_user_name | lower }}-{{ stack_name }}.{{ stack_hostname }}"
+  when: stack_is_for_developer|bool
+
+- name: Set the stack's URL (non-developer)
+  ansible.builtin.set_fact:
+    stack_url: "{{ stack_hostname }}"
+  when: not stack_is_for_developer|bool
+
+- name: Deploy stack
+  kubernetes.core.k8s:
+    definition: "{{ lookup('template', item) }}"
+  loop:
+  - statefulset-stack.yaml.j2
+  - statefulset-worker.yaml.j2
+  - service-stack.yaml.j2
+  - ingress-stack.yaml.j2
+
+- name: Deploy Metrics
+  kubernetes.core.k8s:
+    definition: "{{ lookup('template', 'servicemonitor-stack.yaml.j2') }}"
+    wait: yes
+  when: stack_deploy_metrics|bool
+
+- name: Deploy beat
+  kubernetes.core.k8s:
+    definition: "{{ lookup('template', 'deployment-beat.yaml.j2') }}"
+    wait: yes
+  when: enable_beat_pod|bool
+
+- name: Deploy media backup CronJob
+  kubernetes.core.k8s:
+    definition: "{{ lookup('template', 'cronjob-media-backup.yaml.j2') }}"
+    wait: yes
+    wait_timeout: "{{ wait_timeout }}"
+  when: media_bu_state|string == 'present'
+
+- name: Display stack URL
+  ansible.builtin.debug:
+    msg: Your stack URL is '{{ stack_url }}'
+
+- name: Display graph service
+  ansible.builtin.debug:
+    msg: The graph service is expected at '{{ graph_hostname }}'
+
+# The stack's a StatefulSet with {{ stack_replicas }} instances.
+# They are initialised one after the other from Pod 'stack-0'
+# to Pod 'stack-{{ stack_replicas - 1 }}'.
+# Here we wait for all of them, starting with instance 0...
+
+- name: Wait for each new stack to become Ready
+  ansible.builtin.include_tasks: wait-for-stack.yaml
+  vars:
+    stack_id: "{{ item }}"
+  loop: "{{ range(stack_replicas | int) | list }}"
+
+# ABC: For some reason the following results in 'weird' failures of the play-book.
+#      The suspicion is that there prevailing network issues may be the underlying
+#      cause. For now (Oct 2025) I've commented out the offending lines.
+#
+# Wait for a response from the stack's URL
+# - name: Wait for Stack Landing Page
+#  uri:
+#    url: "https://{{ stack_url }}/viewer/react/landing/"
+#    follow_redirects: none
+#    validate_certs: "{{ stack_validate_hostname_certificate | bool }}"
+#    method: GET
+#    status_code:
+#    - 200
+#    - 503
+#  register: _result
+#  ignore_errors: yes
+#  ignore_unreachable: true
+#  until: _result.status == 200
+#  retries: 120 # 120 * 5 seconds = 10 minutes
+#  delay: 5 # Every 5 seconds
+
+# Display helpful usage/diagnostic information.
+# Repeat the stack URL as it may have been lost in
+# the repeated log from the prior task.
+
+- name: Display stack namespace
+  ansible.builtin.debug:
+    msg: Your stack Kubernetes namespace is '{{ stack_namespace }}'
+
+- name: Display stack URL (again)
+  ansible.builtin.debug:
+    msg: Your stack URL is '{{ stack_url }}'

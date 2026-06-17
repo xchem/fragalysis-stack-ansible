@@ -1,0 +1,150 @@
+---
+# Common playbook preparation.
+
+# Expose ansible version
+- name: Display Ansible version
+  ansible.builtin.debug:
+    var: ansible_version.full
+
+# A container tag must be provided.
+- name: Assert stack container image tag
+  ansible.builtin.assert:
+    that:
+    - stack_image_tag is defined
+    - stack_image_tag|length > 0
+    fail_msg: "'stack_image_tag' is either undefined or blank"
+
+- name: Developer stack preparation
+  when: stack_is_for_developer|bool
+
+  block:
+  # Before moving on, this play is expected to be executed from an AWX/Tower
+  # instance. If so, a number of AWX/Tower variables should be injected.
+  # See https://docs.ansible.com/ansible-tower/latest/html/userguide/job_templates.html
+  # for an up-to-date set, but ones we rely on in order to protect the
+  # job for malfunctioning are: -
+  #
+  # - tower_user_id (the ID, a number, used to create a unique namespace)
+  # - tower_user_name (The username for logging)
+  # - tower_job_template_name (the The Job Template name that's launched us)
+
+  - name: Assert AWX user_id defined
+    ansible.builtin.assert:
+      that:
+      - tower_user_id is defined
+      fail_msg: This job must run from AWX but the 'user_id' has not been defined
+
+  - name: Assert AWX user_id value
+    ansible.builtin.assert:
+      that:
+      - tower_user_id|int > 0
+      fail_msg: The 'user_id' is invalid ({{ tower_user_id }})
+
+  - name: Assert AWX user_name
+    ansible.builtin.assert:
+      that:
+      - tower_user_name is defined
+      - tower_user_name|string|length > 0
+      fail_msg: >-
+        This job must run from AWX but the 'user_name'
+        were either not defined or blank.
+
+  - name: Assert AWX job_template_name defined
+    ansible.builtin.assert:
+      that:
+      - tower_job_template_name is defined
+      fail_msg: >-
+        This job must run from AWX
+        but the 'job_template_name' has not been defined
+
+  - name: Display AWX material
+    ansible.builtin.debug:
+      msg: >-
+        job_template_name='{{ tower_job_template_name }}'
+        user_name={{ tower_user_name }}
+
+  # If developer then the namespace must not be set.
+
+  - name: Check namespace is not set (developer)
+    ansible.builtin.assert:
+      that:
+      - stack_namespace|string|length == 0
+
+  # And, if it's a "User" Job Template,
+  # i.e. the template name begins "User (<name>)",
+  # the name in it must match the user's username.
+  # It's unwise for user X to run a job created for user Y.
+
+  - name: Check job execution user
+    when: tower_job_template_name|regex_search("^User \(([a-zA-Z]+)\).*")
+    block:
+    - name: Get job's username
+      ansible.builtin.set_fact:
+        template_user_name: >-
+          {{ tower_job_template_name | regex_replace('^User \(([a-zA-Z]+)\).*', '\1') | lower }}
+
+    - name: Check job's user against the user
+      ansible.builtin.assert:
+        that: template_user_name == tower_user_name
+        fail_msg: >-
+          You can't run this Job Template.
+          It is for {{ template_user_name }}, not you ({{ tower_user_name }})
+
+  # Also, check the stack name provided.
+  # It cannot be blank and must only consist of lower-case letters.
+  # It will form the basis of the namespace and ingress.
+  - name: Check stack name
+    ansible.builtin.assert:
+      that: stack_name is match('[a-z]+')
+      fail_msg: >-
+        You must prove a value for stack_name.
+        It cannot be blank must only contain lower-case letters.
+
+  - name: Display tower_user_name
+    ansible.builtin.debug:
+      var: tower_user_name
+
+  - name: Check tower_user_name
+    ansible.builtin.assert:
+      that: tower_user_name is match('[A-Za-z]+')
+      fail_msg: >-
+        Your username must only consist of letters.
+
+  - name: Set namespace fact (for user_name '{{ tower_user_name }}')
+    ansible.builtin.set_fact:
+      stack_namespace: stack-{{ tower_user_name | lower }}-{{ stack_name }}
+
+- name: Non-developer stack preparation
+  when: not stack_is_for_developer|bool
+  block:
+  # If non-developer then the namespace must be set.
+  # And it must be one from a restricted set of values.
+
+  - name: Check namespace is set (non-developer)
+    ansible.builtin.assert:
+      that:
+      - stack_namespace|string|length > 0
+
+  - name: Check namespace value (non-developer)
+    ansible.builtin.assert:
+      that: stack_namespace in ['staging-stack', 'production-stack', 'v2-production-stack', 'dummy-production-stack']
+
+# Collect and display freeze result
+
+- name: Freeze
+  ansible.builtin.command: pip freeze
+  changed_when: false
+  register: freeze_result
+
+- name: Display freezer
+  ansible.builtin.debug:
+    var: freeze_result.stdout_lines
+
+# Kubernetes credentials ------------------------------------------------------
+
+# We load the path to the kubeconfig from the KUBECONFIG environment variable
+# so that we can assert it has been set.
+
+- name: Set kubeconfig fact
+  ansible.builtin.set_fact:
+    k8s_kubeconfig: "{{ lookup('env', 'KUBECONFIG') }}"

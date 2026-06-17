@@ -1,0 +1,23 @@
+[project]
+name = "fragalysis-stack-ansible"
+version = "0.1.0"
+description = "Ansible role and playbooks to deploy the Fragalysis Stack to a Kubernetes cluster."
+requires-python = ">=3.12,<3.13"
+dependencies = [
+    # Ansible itself (the community package bundles the kubernetes.core
+    # collection that provides the 'k8s' and 'k8s_info' modules).
+    "ansible>=10",
+    # The Python client the 'k8s'/'k8s_info' modules run on.
+    "kubernetes>=30",
+]
+
+[dependency-groups]
+dev = [
+    # Linting for the playbooks, roles and templates.
+    "ansible-lint>=26,<27",
+]
+
+[tool.uv]
+# This project is a set of Ansible playbooks, not an installable Python
+# package, so uv should not try to build or install it.
+package = false
