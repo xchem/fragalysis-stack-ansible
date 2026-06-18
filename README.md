@@ -1,5 +1,7 @@
 # Fragalysis Stack (Ansible)
 
+[![Latest release][release-badge]][releases]
+
 An Ansible project that deploys the **Fragalysis Stack** (a Django web
 app, Celery workers, PostgreSQL, Redis, pgBouncer and supporting
 services) onto a Kubernetes cluster. It is designed to run from
@@ -116,4 +118,6 @@ text is in the [LICENSE][license] file.
 
 [apache-2.0]: https://www.apache.org/licenses/LICENSE-2.0
 [license]: LICENSE
+[release-badge]: https://img.shields.io/github/v/release/xchem/fragalysis-stack-ansible?sort=semver
+[releases]: https://github.com/xchem/fragalysis-stack-ansible/releases/latest
 [uv]: https://docs.astral.sh/uv/
