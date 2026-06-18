@@ -4,7 +4,7 @@
 # Expose ansible version
 - name: Display Ansible version
   ansible.builtin.debug:
-    var: ansible_version.full
+    var: ansible_facts["version"]["full"]
 
 # A container tag must be provided.
 - name: Assert stack container image tag

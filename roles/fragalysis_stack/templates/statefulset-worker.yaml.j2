@@ -305,7 +305,7 @@ spec:
         # expected to be available. Without changing something in the
         # StatefulSet spec a roll-out will not occur if the tag has not changed.
         - name: ANSIBLE_DATE_TIME_ISO8601_MICRO
-          value: '{{ ansible_date_time.iso8601_micro }}'
+          value: '{{ ansible_facts["date_time"]["iso8601_micro"] }}'
         volumeMounts:
         - name: media
           mountPath: /code/media
