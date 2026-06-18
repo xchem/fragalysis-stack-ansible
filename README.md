@@ -16,6 +16,9 @@ You are expected to have a suitable Python (the project targets Python
 virtual environment and runs the playbooks (e.g.
 `uv run ansible-playbook ...`).
 
+You also need access to the Kubernetes cluster, specifically a namespace
+whose name matches your `USER` environment variable setting.
+
 ## Variables
 
 - `defaults/main.yaml` — user-facing knobs (image tags, replicas,
