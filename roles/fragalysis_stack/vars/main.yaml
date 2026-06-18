@@ -92,7 +92,7 @@ database_mem_request: 400Mi
 
 database_image_registry: docker.io
 database_image: xchem/fragalysis-database
-database_image_tag: 2026.02.1
+database_image_tag: 2026.04.1
 database_port: 5432
 
 # Configuration of the DB server. Content written to the postgres-conf ConfigMap.
@@ -142,6 +142,10 @@ redis_conf_maxmemory: 2gb
 # The number of logical databases.
 # Valid DB indices are 0 .. (redis_conf_databases - 1).
 redis_conf_databases: 4
+
+# Exposing pvc_rwx_access_mode helps local deployment (Docker Desktop)
+# where it can be set to ReadWriteOnce
+pvc_media_rwx_access_mode: ReadWriteMany
 
 # General variables -----------------------------------------------------------
 

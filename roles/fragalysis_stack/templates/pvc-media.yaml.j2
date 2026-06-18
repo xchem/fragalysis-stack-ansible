@@ -6,7 +6,7 @@ metadata:
   namespace: {{ stack_namespace }}
 spec:
   accessModes:
-  - ReadWriteMany
+  - {{ pvc_media_rwx_access_mode }}
 {# A blank (whitespace-only) class omits the field so the cluster's #}
 {# default StorageClass is used; setting it to '' would instead    #}
 {# disable dynamic provisioning.                                    #}
