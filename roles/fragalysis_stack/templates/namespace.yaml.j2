@@ -1,8 +1,0 @@
----
-kind: Namespace
-apiVersion: v1
-metadata:
-  name: {{ stack_namespace }}
-  annotations:
-    user_id: '{{ tower_user_id|default('unknown') }}'
-    user_name: {{ tower_user_name|default('unknown') }}

@@ -12,11 +12,6 @@
 
 - name: Prepare
   ansible.builtin.include_tasks: prep.yaml
-- name: Assert authentication
-  ansible.builtin.assert:
-    that:
-    - k8s_kubeconfig|string|length > 0
-    fail_msg: The KUBECONFIG environment variable must be set
 
 # Go...
 
@@ -31,8 +26,87 @@
       name: "{{ stack_namespace }}"
     register: ns_result
 
+    # To 'wipe' we remove: -
+    # - Stack
+    #  - Redis
+    # - Django secret
+    # - Database
+    # And then, unconditionally delete: -
+    # - Database volume
+    # - Media volume
   - name: Wipe (if namespace exists)
-    ansible.builtin.include_tasks: wipe-stack.yaml
     when: ns_result.resources | length > 0
+    block:
+    - name: Set django secret fact
+          # These facts are required to remove the secret...
+      ansible.builtin.set_fact:
+        stack_django_secret_key_fact: "{{ stack_django_secret_key }}"
+        stack_django_superuser_password_fact: "{{ stack_django_superuser_password }}"
+
+    - name: Shutdown stack, and redis
+      kubernetes.core.k8s:
+        definition: "{{ lookup('template', item) }}"
+        state: absent
+        wait: yes
+      loop:
+      - statefulset-stack.yaml.j2
+      - statefulset-worker.yaml.j2
+      - deployment-beat.yaml.j2
+      - deployment-redis.yaml.j2
+      - secret-django.yaml.j2
+
+    - name: Wait for stack to disappear
+      kubernetes.core.k8s_info:
+        kind: Pod
+        name: stack-0
+        namespace: "{{ stack_namespace }}"
+      register: stack_result
+      until: stack_result.resources | length == 0
+      delay: 8
+      retries: "{{ (wait_timeout | int / 8) | int }}"
+
+    - name: Wait for worker to disappear
+      kubernetes.core.k8s_info:
+        kind: Pod
+        name: worker-0
+        namespace: "{{ stack_namespace }}"
+      register: worker_result
+      until: worker_result.resources | length == 0
+      delay: 8
+      retries: "{{ (wait_timeout | int / 8) | int }}"
+
+    - name: Remove media volume
+      kubernetes.core.k8s:
+        definition: "{{ lookup('template', 'pvc-media.yaml.j2') }}"
+        state: absent
+        wait: yes
+      when: stack_shutdown_remove_media_volume | bool
+
+    - name: Shutdown database
+      kubernetes.core.k8s:
+        definition: "{{ lookup('template', item) }}"
+        state: absent
+        wait: yes
+      loop:
+      - service-pgbouncer.yaml.j2
+      - deployment-pgbouncer.yaml.j2
+      - statefulset-database.yaml.j2
+
+    - name: Wait for database to disappear
+      kubernetes.core.k8s_info:
+        kind: Pod
+        name: database-0
+        namespace: "{{ stack_namespace }}"
+      register: db_result
+      until: db_result.resources | length == 0
+      delay: 8
+      retries: "{{ (wait_timeout | int / 8) | int }}"
+
+    - name: Remove database volume
+      kubernetes.core.k8s:
+        definition: "{{ lookup('template', 'pvc-database.yaml.j2') }}"
+        state: absent
+        wait: yes
+      when: stack_shutdown_remove_database_volume | bool
 
   # Done.

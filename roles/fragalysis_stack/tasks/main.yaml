@@ -1,11 +1,6 @@
 ---
 - name: Prepare
   ansible.builtin.include_tasks: prep.yaml
-- name: Assert authentication
-  ansible.builtin.assert:
-    that:
-    - k8s_kubeconfig|string|length > 0
-    fail_msg: The KUBECONFIG environment variable must be set
 
 # Go...
 
@@ -17,7 +12,7 @@
   block:
   - name: Deploy the stack
     ansible.builtin.include_tasks: deploy.yaml
-    when: stack_state|string == 'present'
+    when: stack_state | string == 'present'
   - name: Undeploy the stack
     ansible.builtin.include_tasks: undeploy.yaml
-    when: stack_state|string == 'absent'
+    when: stack_state | string == 'absent'

@@ -1,13 +1,132 @@
 ---
+# To 'undeploy' we remove every resource the role creates within the
+# namespace, but we leave the namespace itself intact - it is expected to
+# pre-exist (asserted during 'prep') and may be owned/used by others.
+#
+# Resources are removed by 'kind' and 'name' so we do not need to render the
+# templates (some of which require secret facts that are not available here).
+
 - name: Check the namespace
   ansible.builtin.assert:
     that:
-    - stack_namespace|string|length > 0
+    - stack_namespace | string | length > 0
 
-# Bye bye...
+# Workloads first (these own the pods)
 
-- name: Deleting namespace '{{ stack_namespace }}'
+- name: Remove workloads
   kubernetes.core.k8s:
+    kind: "{{ item.kind }}"
+    name: "{{ item.name }}"
+    namespace: "{{ stack_namespace }}"
     state: absent
-    definition: "{{ lookup('template', 'namespace.yaml.j2') }}"
+    wait: yes
+  loop:
+  - {kind: StatefulSet, name: stack}
+  - {kind: StatefulSet, name: worker}
+  - {kind: StatefulSet, name: database}
+  - {kind: Deployment, name: beat}
+  - {kind: Deployment, name: pgbouncer}
+  - {kind: Deployment, name: redis}
+  - {kind: CronJob, name: media-backup}
+  - {kind: CronJob, name: postgres-backup-hourly}
+
+- name: Wait for stack to disappear
+  kubernetes.core.k8s_info:
+    kind: Pod
+    name: stack-0
+    namespace: "{{ stack_namespace }}"
+  register: stack_result
+  until: stack_result.resources | length == 0
+  delay: 8
+  retries: "{{ (wait_timeout | int / 8) | int }}"
+
+- name: Wait for worker to disappear
+  kubernetes.core.k8s_info:
+    kind: Pod
+    name: worker-0
+    namespace: "{{ stack_namespace }}"
+  register: worker_result
+  until: worker_result.resources | length == 0
+  delay: 8
+  retries: "{{ (wait_timeout | int / 8) | int }}"
+
+- name: Wait for database to disappear
+  kubernetes.core.k8s_info:
+    kind: Pod
+    name: database-0
+    namespace: "{{ stack_namespace }}"
+  register: db_result
+  until: db_result.resources | length == 0
+  delay: 8
+  retries: "{{ (wait_timeout | int / 8) | int }}"
+
+# Networking, services and config
+
+- name: Remove services, ingress and config maps
+  kubernetes.core.k8s:
+    kind: "{{ item.kind }}"
+    name: "{{ item.name }}"
+    namespace: "{{ stack_namespace }}"
+    state: absent
+    wait: yes
+  loop:
+  - {kind: Service, name: stack}
+  - {kind: Service, name: redis}
+  - {kind: Service, name: pgbouncer}
+  - {kind: Service, name: database}
+  - {kind: Ingress, name: stack}
+  - {kind: ConfigMap, name: postgres-conf}
+  - {kind: ConfigMap, name: postgres-init}
+  - {kind: ConfigMap, name: redis-conf}
+
+- name: Remove metrics ServiceMonitor
+  kubernetes.core.k8s:
+    api_version: monitoring.coreos.com/v1
+    kind: ServiceMonitor
+    name: fragalysis-stack
+    namespace: "{{ stack_namespace }}"
+    state: absent
+    wait: yes
+  when: stack_deploy_metrics | bool
+
+# Secrets
+
+- name: Remove secrets
+  kubernetes.core.k8s:
+    kind: Secret
+    name: "{{ item }}"
+    namespace: "{{ stack_namespace }}"
+    state: absent
+    wait: yes
+  loop:
+  - django
+  - database
+  - pgbouncer
+  - xchem
+  - backup-rclone
+  - backup-rsync
+
+# Persistent volume claims
+
+- name: Remove persistent volume claims
+  kubernetes.core.k8s:
+    kind: PersistentVolumeClaim
+    name: "{{ item }}"
+    namespace: "{{ stack_namespace }}"
+    state: absent
+    wait: yes
+  loop:
+  - database
+  - media
+  - database-backup
+  - redis
+
+# Service account (created during 'deploy')
+
+- name: Remove service account
+  kubernetes.core.k8s:
+    kind: ServiceAccount
+    name: stack
+    namespace: "{{ stack_namespace }}"
+    state: absent
     wait: yes

@@ -1,5 +1,9 @@
 ---
 
+# Enforce the strictest built-in rule set. The skip_list below exempts the
+# few rules that clash with this project's documented house style.
+profile: production
+
 # Rules disabled because they conflict with this project's YAML house style:
 #
 # - yaml[indentation]: ansible-lint wants list items ('-') indented beneath
@@ -13,6 +17,6 @@
 #   are the documented interface used by AWX job templates and surveys. Prefixing
 #   them all with 'fragalysis_stack_' would break that interface for no real gain.
 skip_list:
-- yaml[indentation]
-- yaml[truthy]
-- var-naming[no-role-prefix]
+  - yaml[indentation]
+  - yaml[truthy]
+  - var-naming[no-role-prefix]

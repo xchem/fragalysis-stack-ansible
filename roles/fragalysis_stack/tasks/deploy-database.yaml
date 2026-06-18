@@ -10,8 +10,8 @@
 
 - name: Check database volume
   when:
-  - not stack_allow_pre_existing_database_volume|bool
-  - stack_skip_deploy|bool
+  - not stack_allow_pre_existing_database_volume | bool
+  - stack_skip_deploy | bool
 
   block:
   - name: Get database volume
@@ -23,7 +23,7 @@
 
   - name: Assert database volume is absent
     ansible.builtin.assert:
-      that: db_pvc_result.resources|length == 0
+      that: db_pvc_result.resources | length == 0
       fail_msg: >-
         The database volume exists but shouldn't.
         Do you need to run the corresponding 'shutdown' play first?
@@ -46,7 +46,7 @@
   until: bind_result.resources[0].status.phase == 'Bound'
   delay: 5
   retries: "{{ (bind_timeout | int / 5) | int }}"
-  when: wait_for_bind|bool
+  when: wait_for_bind | bool
 
 # Now the database secrets.
 #
@@ -67,13 +67,13 @@
   ansible.builtin.set_fact:
     database_host_fact: database.{{ stack_namespace }}.svc
     database_port_fact: "{{ database_port }}"
-  when: database_host|string|length == 0
+  when: database_host | string | length == 0
 
 - name: Set database location (external)
   ansible.builtin.set_fact:
     database_host_fact: database_host
     database_port_fact: "{{ database_port }}"
-  when: database_host|string|length > 0
+  when: database_host | string | length > 0
 
 - name: Display database location
   ansible.builtin.debug:
@@ -85,13 +85,13 @@
   ansible.builtin.set_fact:
     stack_db_root_password_fact: "{{ database_root_password }}"
     stack_db_user_password_fact: "{{ database_user_password }}"
-  when: s_result.resources|length == 0
+  when: s_result.resources | length == 0
 
 - name: Write database secrets
   kubernetes.core.k8s:
     definition: "{{ lookup('template', 'secret-database.yaml.j2') }}"
     wait: yes
-  when: s_result.resources|length == 0
+  when: s_result.resources | length == 0
 
 - name: Set database secret facts (from secrets)
   ansible.builtin.set_fact:
@@ -99,7 +99,7 @@
     database_port_fact: "{{ s_result.resources[0].data.port | b64decode }}"
     stack_db_root_password_fact: "{{ s_result.resources[0].data.root_password | b64decode }}"
     stack_db_user_password_fact: "{{ s_result.resources[0].data.user_password | b64decode }}"
-  when: s_result.resources|length == 1
+  when: s_result.resources | length == 1
 
 # Now deploy the database and its service.
 
@@ -126,10 +126,10 @@
   register: db_result
   until: >-
     db_result.resources is defined
-    and db_result.resources|length == 1
+    and db_result.resources | length == 1
     and db_result.resources[0].status is defined
     and db_result.resources[0].status.containerStatuses is defined
-    and db_result.resources[0].status.containerStatuses|length == 1
+    and db_result.resources[0].status.containerStatuses | length == 1
     and db_result.resources[0].status.containerStatuses[0].ready
   delay: 10
   retries: "{{ (wait_timeout | int / 10) | int }}"
@@ -137,7 +137,7 @@
 # Database (backups) ----------------------------------------------------------
 
 - name: Database backup
-  when: database_bu_state|string == 'present'
+  when: database_bu_state | string == 'present'
 
 # pgBouncer ----------------------------------------------------------
 
@@ -152,7 +152,7 @@
 
 #  - name: Assert {{ database_bu_vol_storageclass }} backup StorageClass
 #    assert:
-#      that: sc_result.resources|length == 1
+#      that: sc_result.resources | length == 1
 #      fail_msg: The {{ database_bu_vol_storageclass }} StorageClass must be available on the cluster
 #    when: database_bu_vol_storageclass != " "
 
@@ -169,12 +169,12 @@
       namespace: "{{ stack_namespace }}"
     register: bu_pvc_result
     until: >-
-      bu_pvc_result.resources|length > 0
+      bu_pvc_result.resources | length > 0
       and bu_pvc_result.resources[0].status is defined
       and bu_pvc_result.resources[0].status.phase == 'Bound'
     delay: 5
     retries: "{{ (bind_timeout | int / 5) | int }}"
-    when: wait_for_bind|bool
+    when: wait_for_bind | bool
 
   - name: Deploy backup CronJobs
     kubernetes.core.k8s:

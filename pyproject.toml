@@ -6,9 +6,9 @@ requires-python = ">=3.12,<3.13"
 dependencies = [
     # Ansible itself (the community package bundles the kubernetes.core
     # collection that provides the 'k8s' and 'k8s_info' modules).
-    "ansible>=10",
+    "ansible>=14,<15",
     # The Python client the 'k8s'/'k8s_info' modules run on.
-    "kubernetes>=30",
+    "kubernetes>=34,<35",
 ]
 
 [dependency-groups]
