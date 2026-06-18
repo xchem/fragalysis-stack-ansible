@@ -68,6 +68,13 @@ stack_is_for_developer: yes
 stack_hostname: ""
 stack_validate_hostname_certificate: yes
 
+# The ingress controller that serves the stack.
+# Must be one of 'nginx' or 'traefik' (validated in prep.yaml).
+# This selects the IngressClass, the controller-specific annotations,
+# and the cert-manager ClusterIssuer name ('letsencrypt-<class>-<issuer>')
+# emitted by the ingress template.
+stack_ingress_class: nginx
+
 # A URL for a prior/legacy stack.
 # If set this is passed to the frontend via the DJANGO_CONTEXT.
 stack_legacy_url: ""
@@ -211,7 +218,7 @@ database_bu_rclone_s3_default_region: ""
 # PgBouncer configuration.
 # Set the tag to a blank string to avoid deployment.
 pgbouncer_image: xchem/pgbouncer
-pgbouncer_tag: "1.25.1"
+pgbouncer_tag: "1.25.2"
 
 # Media backups?
 media_bu_state: absent

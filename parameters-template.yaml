@@ -4,13 +4,37 @@
 #
 #   uv run ansible-playbook site.yaml -e @parameters.yaml
 
+database_vol_size_g: 2
+
+graph_hostname: ""
+graph_password: ""
+
 stack_image: xchem/fragalysis-stack
 stack_image_tag: latest
 stack_hostname: ""
+
+stack_cpu_limit: 1
+stack_mem_limit: 4Gi
+stack_cpu_request: 1
+stack_mem_request: 4Gi
+
+stack_media_vol_size_g: 400
 
 stack_oidc_rp_client_secret: ""
 stack_oidc_rp_client_id: ""
 stack_oidc_keycloak_realm_url: ""
 
-graph_hostname: ""
-graph_password: ""
+stack_wait_for_graph: yes
+
+stack_ephemeral_request: 100Gi
+stack_ephemeral_limit: 100Gi
+stack_ephemeral_emptydir_size_limit: 110Gi
+
+worker_cpu_limit: 4
+worker_mem_limit: 16Gi
+worker_cpu_request: 4
+worker_mem_request: 16Gi
+
+worker_ephemeral_request: 100Gi
+worker_ephemeral_limit: 100Gi
+worker_ephemeral_emptydir_size_limit: 110Gi

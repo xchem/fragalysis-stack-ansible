@@ -4,15 +4,19 @@ apiVersion: networking.k8s.io/v1
 metadata:
   name: stack
   namespace: {{ stack_namespace }}
+{% if stack_ingress_class == 'nginx' or stack_cert_issuer %}
   annotations:
+{% if stack_ingress_class == 'nginx' %}
     nginx.ingress.kubernetes.io/rewrite-target: /
     nginx.ingress.kubernetes.io/proxy-body-size: "0"
     nginx.ingress.kubernetes.io/enable-cors: "true"
+{% endif %}
 {% if stack_cert_issuer %}
-    cert-manager.io/cluster-issuer: "letsencrypt-nginx-{{ stack_cert_issuer|lower }}"
+    cert-manager.io/cluster-issuer: "letsencrypt-{{ stack_ingress_class }}-{{ stack_cert_issuer | lower }}"
+{% endif %}
 {% endif %}
 spec:
-  ingressClassName: nginx
+  ingressClassName: {{ stack_ingress_class }}
 {% if stack_cert_issuer %}
   tls:
   - hosts:

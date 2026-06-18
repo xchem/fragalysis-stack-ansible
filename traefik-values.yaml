@@ -1,0 +1,58 @@
+---
+# Values for the Traefik Helm chart, used to install Traefik as the
+# cluster ingress controller.
+#
+# Chart: https://github.com/traefik/traefik-helm-chart
+# Docs:  https://doc.traefik.io/traefik/getting-started/kubernetes/
+#
+# Add the repo and install (see README) with: -
+#
+#   helm repo add traefik https://traefik.github.io/charts
+#   helm repo update
+#   helm upgrade --install traefik traefik/traefik \
+#     --namespace traefik --create-namespace \
+#     -f traefik-values.yaml --wait
+
+# Publish an IngressClass named 'traefik' and make it the cluster
+# default so standard Kubernetes Ingress objects are served by Traefik
+# even when they do not name an ingressClassName.
+ingressClass:
+  enabled: true
+  isDefaultClass: true
+
+# Providers: watch classic Ingress objects and Traefik CRDs.
+# The Gateway API provider is left disabled (the stack uses Ingress).
+providers:
+  kubernetesIngress:
+    enabled: true
+    # Write the load-balancer address back onto Ingress status.
+    publishedService:
+      enabled: true
+  kubernetesCRD:
+    enabled: true
+
+# HTTP (web) and HTTPS (websecure) entry points.
+# Permanently redirect plain HTTP to HTTPS.
+ports:
+  web:
+    http:
+      redirections:
+        entryPoint:
+          to: websecure
+          scheme: https
+          permanent: true
+  websecure:
+    http:
+      tls:
+        enabled: true
+
+# Expose Traefik through a cloud LoadBalancer service.
+service:
+  enabled: true
+  type: LoadBalancer
+
+# The dashboard IngressRoute is disabled by default - expose it
+# deliberately, behind authentication, rather than on every cluster.
+ingressRoute:
+  dashboard:
+    enabled: false

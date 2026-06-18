@@ -101,24 +101,9 @@
   ansible.builtin.assert:
     that: stack_replicas | int > 0
 
-# Set the stack hostname, which will either be just the hostname of the
-# stack (if the namespace has been defined) or the hostname plus
-# the user name and their chosen stack name.
-# If no 'stack_hostname' has been set there is no URL and no ingress.
-
-- name: Set the stack's URL (developer)
-  ansible.builtin.set_fact:
-    stack_url: "fragalysis-{{ tower_user_name | lower }}-{{ stack_name }}.{{ stack_hostname }}"
-  when:
-  - stack_hostname | string | length > 0
-  - stack_is_for_developer | bool
-
-- name: Set the stack's URL (non-developer)
+- name: Set the stack's URL
   ansible.builtin.set_fact:
     stack_url: "{{ stack_hostname }}"
-  when:
-  - stack_hostname | string | length > 0
-  - not stack_is_for_developer | bool
 
 - name: Deploy stack
   kubernetes.core.k8s:

@@ -14,6 +14,14 @@
     - stack_image_tag | length > 0
     fail_msg: "'stack_image_tag' is either undefined or blank"
 
+- name: Assert ingress class
+  ansible.builtin.assert:
+    that:
+    - stack_ingress_class in ['nginx', 'traefik']
+    fail_msg: >-
+      'stack_ingress_class' must be 'nginx' or 'traefik'
+      (got '{{ stack_ingress_class }}')
+
 # Kubernetes credentials
 #
 # We load the path to the kubeconfig from the KUBECONFIG environment
