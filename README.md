@@ -7,6 +7,13 @@ a control machine. The host is `localhost` with a local connection —
 all work happens against a remote cluster via the
 `k8s`/`k8s_info` modules, not against the Ansible host itself.
 
+## Prerequisites
+
+You are expected to have a suitable Python (the project targets Python
+3.12) and the [uv][uv] package manager installed. `uv` creates the
+virtual environment and runs the playbooks (e.g.
+`uv run ansible-playbook ...`).
+
 ## Variables
 
 - `defaults/main.yaml` — user-facing knobs (image tags, replicas,
@@ -109,3 +116,4 @@ text is in the [LICENSE][license] file.
 
 [apache-2.0]: https://www.apache.org/licenses/LICENSE-2.0
 [license]: LICENSE
+[uv]: https://docs.astral.sh/uv/
