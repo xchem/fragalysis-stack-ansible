@@ -1,0 +1,16 @@
+---
+# Variables you might want to set when deploying your stack.
+# Copy as `parameters.yaml` (excluded in .gitignore) and run with: -
+#
+#   uv run ansible-playbook site.yaml -e @parameters.yaml
+
+stack_image: xchem/fragalysis-stack
+stack_image_tag: latest
+stack_hostname: ""
+
+stack_oidc_rp_client_secret: ""
+stack_oidc_rp_client_id: ""
+stack_oidc_keycloak_realm_url: ""
+
+graph_hostname: ""
+graph_password: ""

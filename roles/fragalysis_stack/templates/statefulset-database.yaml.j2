@@ -48,11 +48,6 @@ spec:
       securityContext:
         fsGroup: 26
 
-{% if all_image_preset_pullsecret_name|string|length > 0 %}
-      imagePullSecrets:
-      - name: {{ all_image_preset_pullsecret_name }}
-{% endif %}
-
 #      initContainers:
 #      - name: copy-conf
 #        image: {{ busybox_image_registry }}/library/busybox:1.28.0

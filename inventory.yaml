@@ -6,3 +6,7 @@ all:
         localhost:
       vars:
         ansible_connection: local
+        # Run modules with the same interpreter that launched the
+        # playbook (the uv-managed venv that has 'kubernetes'
+        # installed) rather than a system Python found via discovery.
+        ansible_python_interpreter: "{{ ansible_playbook_python }}"

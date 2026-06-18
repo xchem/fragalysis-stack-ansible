@@ -13,16 +13,16 @@ There is one role, `fragalysis_stack`, with four entrypoint playbooks that diffe
 
 ```bash
 # Deploy / update the full stack (tasks/main.yaml)
-ansible-playbook site-fragalysis-stack.yaml
+uv run ansible-playbook site.yaml
 
 # Fast in-place app update only — stack, worker, beat (tasks/update.yaml)
-ansible-playbook site-fragalysis-stack_update.yaml
+uv run ansible-playbook site_update.yaml
 
 # Remove stack + django secret, keep DB and (by default) media volume (tasks/shutdown.yaml)
-ansible-playbook site-fragalysis-stack_shutdown.yaml
+uv run ansible-playbook site_shutdown.yaml
 
 # Remove stack, redis, DB and all volumes but keep namespace + cert (tasks/wipe.yaml)
-ansible-playbook site-fragalysis-stack_wipe.yaml
+uv run ansible-playbook site_wipe.yaml
 ```
 
 `stack_image_tag` must always be provided (no default that works) — pass it with `-e stack_image_tag=...`

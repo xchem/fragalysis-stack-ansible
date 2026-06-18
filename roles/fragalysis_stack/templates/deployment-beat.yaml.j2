@@ -42,11 +42,6 @@ spec:
               - key: informaticsmatters.com/purpose-worker
                 operator: DoesNotExist
 
-{% if all_image_preset_pullsecret_name|string|length > 0 %}
-      imagePullSecrets:
-      - name: {{ all_image_preset_pullsecret_name }}
-{% endif %}
-
       initContainers:
       - name: wait-for-database
         image: {{ busybox_image_registry }}/library/busybox:1.28.0

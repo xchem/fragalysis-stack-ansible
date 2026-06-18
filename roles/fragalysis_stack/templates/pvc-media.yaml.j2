@@ -7,7 +7,12 @@ metadata:
 spec:
   accessModes:
   - ReadWriteMany
-  storageClassName: '{{ stack_media_vol_storageclass }}'
+{# A blank (whitespace-only) class omits the field so the cluster's #}
+{# default StorageClass is used; setting it to '' would instead    #}
+{# disable dynamic provisioning.                                    #}
+{% if stack_media_vol_storageclass | trim | length > 0 %}
+  storageClassName: '{{ stack_media_vol_storageclass | trim }}'
+{% endif %}
   resources:
     requests:
       storage: '{{ stack_media_vol_size_g }}Gi'

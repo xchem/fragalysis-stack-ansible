@@ -63,6 +63,12 @@ stack_log_vol_storageclass:
 stack_django_secret_key: "{{ lookup('password', '/dev/null length=50 chars=ascii_letters') }}"
 stack_django_superuser_password: "{{ lookup('password', '/dev/null length=22 chars=ascii_letters') }}"
 
+# Various keys, usually provided via a vault
+stack_ibm_api_key: ""
+stack_manifold_api_key: ""
+stack_mcule_api_key: ""
+stack_sendgrid_api_key: ""
+
 # Worker configuration --------------------------------------------------------
 
 worker_cpu_limit: 4

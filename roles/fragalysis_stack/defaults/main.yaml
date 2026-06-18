@@ -108,7 +108,9 @@ stack_disable_logging_framework: no
 # Environment variables in the stack pod are only set up if the secret is defined.
 stack_oidc_rp_client_secret: ""
 stack_oidc_rp_client_id: fragalysis-local
-stack_oidc_keycloak_realm: https://keycloak.xchem-dev.diamond.ac.uk/auth/realms/xchem
+# The full URL of the Keycloak realm, e.g.
+# https://keycloak.xchem-dev.diamond.ac.uk/auth/realms/xchem
+stack_oidc_keycloak_realm_url: ""
 stack_oidc_renew_id_token_expiry_minutes: 210
 
 # Override method to also log user out from Keycloak as well as Django.
@@ -152,7 +154,7 @@ stack_public_tas: ""
 # This defeats the security checks for proposal membership
 # by setting the Pod environment variable DISABLE_RESTRICT_PROPOSALS_TO_MEMBERSHIP.
 # This is not available when the stack_deployment_mode is 'production'
-stack_disable_restrict_proposals_to_membership: no
+stack_disable_restrict_proposals_to_membership: yes
 
 # Variables controlling the deployed database image.
 # Define a database host if a pre-existing database is to be used.
@@ -253,7 +255,7 @@ stack_max_download_concurrency_percent: 80
 #
 # A full set of values would include:
 #   discourse:fragmentation_graph:ispyb:keycloak:squonk
-stack_enable_service_status: "discourse:fragmentation_graph:ispyb:keycloak:squonk"
+stack_enable_service_status: "fragmentation_graph:ispyb:keycloak"
 
 # Logging framework level
 # A python logging level string
@@ -289,5 +291,6 @@ stack_ta_auth_query_key: ""
 # to inject values you can provide your own.
 
 # The Graph instance to connect to.
+# The hostname can be a kubernetes service (e.g. `graph.graph.svc`)
 graph_hostname: ""
 graph_password: ""

@@ -1,7 +1,7 @@
 ---
 name: lint
 
-# Lint the role and the root site-*.yaml playbooks with ansible-lint,
+# Lint the role and the root site*.yaml playbooks with ansible-lint,
 # using the uv-managed environment (Python and ansible-lint come from
 # pyproject.toml / uv.lock, so CI matches local runs).
 
@@ -29,4 +29,4 @@ jobs:
       run: uv sync --frozen
 
     - name: Run ansible-lint
-      run: uv run ansible-lint roles/fragalysis_stack site-*.yaml
+      run: uv run ansible-lint roles/fragalysis_stack site*.yaml

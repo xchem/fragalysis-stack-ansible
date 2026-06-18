@@ -41,11 +41,6 @@ spec:
               - key: informaticsmatters.com/purpose-worker
                 operator: DoesNotExist
 
-{% if all_image_preset_pullsecret_name|string|length > 0 %}
-      imagePullSecrets:
-      - name: {{ all_image_preset_pullsecret_name }}
-{% endif %}
-
       # Init Containers
       initContainers:
       - name: wait-for-database
@@ -160,7 +155,7 @@ spec:
         - name: OIDC_RP_CLIENT_ID
           value: '{{ stack_oidc_rp_client_id }}'
         - name: OIDC_KEYCLOAK_REALM
-          value: '{{ stack_oidc_keycloak_realm }}'
+          value: '{{ stack_oidc_keycloak_realm_url }}'
         - name: OIDC_OP_LOGOUT_URL_METHOD
           value: '{{ stack_oidc_op_logout_url_method }}'
         - name: OIDC_RENEW_ID_TOKEN_EXPIRY_MINUTES
