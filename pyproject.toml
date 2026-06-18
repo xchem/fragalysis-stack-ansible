@@ -2,6 +2,7 @@
 name = "fragalysis-stack-ansible"
 version = "0.1.0"
 description = "Ansible role and playbooks to deploy the Fragalysis Stack to a Kubernetes cluster."
+license = "Apache-2.0"
 requires-python = ">=3.12,<3.13"
 dependencies = [
     # Ansible itself (the community package bundles the kubernetes.core

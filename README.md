@@ -7,6 +7,20 @@ a control machine. The host is `localhost` with a local connection —
 all work happens against a remote cluster via the
 `k8s`/`k8s_info` modules, not against the Ansible host itself.
 
+## Variables
+
+- `defaults/main.yaml` — user-facing knobs (image tags, replicas,
+  hostnames, backups, Keycloak/OIDC, Squonk2, email, feature flags).
+  Heavily commented; read it before adding a new variable.
+- `vars/main.yaml` — internal tuning the user is not expected to change
+  (resource limits, image registries, timeouts, generated passwords,
+  `stack_state`).
+
+A `parameters-template.yaml` file exposes some of the more useful _tunable_
+variables. You are encouraged to inspect all the variables but also copy
+`parameters-template.yaml` to `parameters.yaml` in order to fine-tune the
+installation to suit your needs.
+
 ## Running the playbooks
 
 There is one role, `fragalysis_stack`, with four entrypoint playbooks
@@ -82,15 +96,16 @@ Key patterns to preserve when editing tasks:
   / `..._media_volume` exist to force a `shutdown` between
   production→staging replications. Don't relax them.
 
-## Variables
-
-- `defaults/main.yaml` — user-facing knobs (image tags, replicas,
-  hostnames, backups, Keycloak/OIDC, Squonk2, email, feature flags).
-  Heavily commented; read it before adding a new variable.
-- `vars/main.yaml` — internal tuning the user is not expected to change
-  (resource limits, image registries, timeouts, generated passwords,
-  `stack_state`).
+## Templates
 
 Templates in `roles/fragalysis_stack/templates/*.j2` are the Kubernetes
 manifests rendered via `lookup('template', ...)`. Adding a new K8s object
 means adding a template and a `k8s:` task referencing it.
+
+## License
+
+Licensed under the [Apache License, Version 2.0][apache-2.0]; the full
+text is in the [LICENSE][license] file.
+
+[apache-2.0]: https://www.apache.org/licenses/LICENSE-2.0
+[license]: LICENSE
