@@ -70,11 +70,11 @@
     state: absent
     wait: yes
   loop:
+  - {kind: Ingress, name: stack}
   - {kind: Service, name: stack}
   - {kind: Service, name: redis}
   - {kind: Service, name: pgbouncer}
   - {kind: Service, name: database}
-  - {kind: Ingress, name: stack}
   - {kind: ConfigMap, name: postgres-conf}
   - {kind: ConfigMap, name: postgres-init}
   - {kind: ConfigMap, name: redis-conf}

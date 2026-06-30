@@ -59,9 +59,12 @@ uv run ansible-playbook site-fragalysis-stack_update.yaml
 # (tasks/shutdown.yaml)
 uv run ansible-playbook site-fragalysis-stack_shutdown.yaml
 
-# Remove stack, redis, DB and all volumes but keep namespace + cert
-# (tasks/wipe.yaml)
+# Wipe the deployment. Deletes almost everything but keeps some objects like the Ingress
+# to avoid the risk of regenerated certificates and hitting a Let's Encrypt rate limit)
 uv run ansible-playbook site-fragalysis-stack_wipe.yaml
+
+# Remove everything
+uv run ansible-playbook site-fragalysis-stack.yaml -e stack_state=absent
 ```
 
 For these playbooks the `stack_image_tag` variable must always be provided

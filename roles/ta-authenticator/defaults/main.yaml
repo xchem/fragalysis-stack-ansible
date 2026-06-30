@@ -1,6 +1,6 @@
 ---
 
-taa_state: 'present'
+taa_state: "present"
 
 # The namespace to deploy the authenticator to.
 taa_namespace: ""
@@ -17,7 +17,7 @@ taa_stats_key: ""
 # The Target Access Authenticator image you want to deploy.
 taa_image_registry: docker.io
 taa_image: xchem/fragalysis-ispyb-target-access-authenticator
-taa_image_tag: '1.4.4'
+taa_image_tag: "1.4.4"
 
 taa_cpu_request: 10m
 taa_cpu_limit: 1

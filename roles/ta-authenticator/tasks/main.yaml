@@ -18,24 +18,7 @@
 
 # Go...
 
-- name: Deploy (without KUBECONFIG)
-  module_defaults:
-    group/k8s:
-      host: "{{ k8s_auth_host }}"
-      api_key: "{{ k8s_auth_api_key }}"
-      validate_certs: "{{ k8s_auth_verify_ssl | default('no', true) }}"
-      wait_timeout: "{{ wait_timeout | int }}"
-  when: k8s_kubeconfig | string | length == 0
-  block:
-
-  - name: Deploy (without KUBECONFIG)
-    ansible.builtin.include_tasks: deploy.yaml
-    when: taa_state | string == 'present'
-  - name: Undeploy (without KUBECONFIG)
-    ansible.builtin.include_tasks: undeploy.yaml
-    when: taa_state | string == 'absent'
-
-- name: Deploy (with KUBECONFIG)
+- name: Deploy
   module_defaults:
     group/k8s:
       kubeconfig: "{{ k8s_kubeconfig }}"
@@ -48,4 +31,4 @@
     when: taa_state | string == 'present'
   - name: Undeploy (with KUBECONFIG)
     ansible.builtin.include_tasks: undeploy.yaml
-    when: taa_state | string == 'absent'
+    when: taa_state | string == 'present'
