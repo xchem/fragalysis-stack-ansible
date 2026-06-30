@@ -4,6 +4,14 @@
 # required for all plays have been set. Here we're
 # just concerned with those required to play.
 
+# Sensitive, installation-specific material lives in an encrypted vault
+# file, one per installation. Its values override the blank placeholders
+# in 'defaults/main.yaml' and 'vars/main.yaml'.
+
+- name: Include sensitive variables
+  ansible.builtin.include_vars:
+    file: "sensitive-{{ fragalysis_installation }}.vault"
+
 - name: Assert database variables
   ansible.builtin.assert:
     that:

@@ -14,6 +14,22 @@
     - stack_image_tag | length > 0
     fail_msg: "'stack_image_tag' is either undefined or blank"
 
+# The installation selects which encrypted vault of sensitive material is
+# loaded (e.g. 'vars/sensitive-argus.vault' for the 'argus' installation).
+# It is common to all roles and must be a safe identifier because it is
+# used in filenames and environment variable names.
+
+- name: Assert the installation is set
+  ansible.builtin.assert:
+    that:
+    - fragalysis_installation is defined
+    - fragalysis_installation | string | length > 0
+    - fragalysis_installation is match('^[a-z0-9][a-z0-9-]*$')
+    fail_msg: >-
+      'fragalysis_installation' must be set to a lower-case installation
+      name (letters, digits and hyphens only), e.g.
+      '-e fragalysis_installation=argus'.
+
 - name: Assert ingress class
   ansible.builtin.assert:
     that:

@@ -1,0 +1,32 @@
+---
+
+# Template for an installation's sensitive material.
+#
+# Copy this file to 'sensitive-<installation>.vault', fill in the values,
+# then encrypt it in place with a vault-id labelled for the installation:
+#
+#   cp sensitive-template.yaml sensitive-argus.vault
+#   ANSIBLE_VAULT_PASSWORD_ARGUS=... \
+#     uv run ansible-vault encrypt \
+#       --vault-id argus@../../../vault-client.py sensitive-argus.vault
+#
+# The encrypted '.vault' file is committed; this plain template is not a
+# secret and never holds real values. Do NOT commit a decrypted vault.
+
+# The query key that secures the authenticator endpoint. There is no
+# placeholder for this in 'defaults/main.yaml' - it comes only from here.
+taa_query_key: ""
+# The key that secures the stats endpoint.
+taa_stats_key: ""
+
+# ISPyB database connection.
+taa_ispyb_host: ""
+taa_ispyb_port: ""
+taa_ispyb_user: ""
+taa_ispyb_password: ""
+
+# SSH access to the target system. 'taa_ssh_private_key' is the private
+# key itself (mounted into the container), not a path.
+taa_ssh_host: ""
+taa_ssh_user: ""
+taa_ssh_private_key: ""

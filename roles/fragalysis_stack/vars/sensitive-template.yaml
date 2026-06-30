@@ -1,0 +1,63 @@
+---
+
+# Template for an installation's sensitive material.
+#
+# Copy this file to 'sensitive-<installation>.vault', fill in the values
+# the installation needs, then encrypt it in place with a vault-id
+# labelled for the installation:
+#
+#   cp sensitive-template.yaml sensitive-argus.vault
+#   ANSIBLE_VAULT_PASSWORD_ARGUS=... \
+#     uv run ansible-vault encrypt \
+#       --vault-id argus@../../../vault-client.py sensitive-argus.vault
+#
+# The encrypted '.vault' file is committed; this plain template is not a
+# secret and never holds real values. Do NOT commit a decrypted vault.
+#
+# These values override the blank placeholders in 'defaults/main.yaml'
+# and 'vars/main.yaml'. Only include the entries an installation actually
+# uses - omit a whole group (e.g. xchem, rsync, rclone) if it is unused.
+
+# The Neo4j graph database password.
+graph_password: ""
+
+# Keycloak / OIDC client secret.
+stack_oidc_rp_client_secret: ""
+
+# Squonk2 organisation owner password.
+stack_squonk2_org_owner_password: ""
+
+# Sentry SDK DSN for the backend.
+stack_backend_sentry_dsn: ""
+
+# Outbound email. 'stack_email_user' may be a plain from-address; if
+# 'stack_email_password' is set the user is authenticated.
+stack_email_user: ""
+stack_email_password: ""
+
+# Third-party service API keys.
+stack_ibm_api_key: ""
+stack_manifold_api_key: ""
+stack_mcule_api_key: ""
+stack_sendgrid_api_key: ""
+
+# XChem database (used to build the 'xchem' secret). Omit the group if
+# 'stack_build_xchem' is not enabled for this installation.
+stack_xchem_user: ""
+stack_xchem_password: ""
+stack_xchem_name: ""
+stack_xchem_host: ""
+stack_xchem_port: ""
+
+# Backup over rsync ('database_bu_use_rsync'). Omit if unused.
+stack_backup_rsync_host: ""
+stack_backup_rsync_path: ""
+stack_backup_rsync_user: ""
+stack_backup_rsync_pass: ""
+
+# Backup to S3 via rclone. Omit if unused.
+database_bu_rclone_s3_endpoint: ""
+database_bu_rclone_s3_provider: ""
+database_bu_rclone_s3_access_key_id: ""
+database_bu_rclone_s3_secret_access_key: ""
+database_bu_rclone_s3_default_region: ""

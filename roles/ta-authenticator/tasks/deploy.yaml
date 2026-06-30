@@ -2,7 +2,7 @@
 
 - name: Include sensitive variables
   ansible.builtin.include_vars:
-    file: sensitive.vault
+    file: "sensitive-{{ fragalysis_installation }}.vault"
 
 # The namespace is provided for us (we do not create it). We insist that
 # the chosen namespace already exists before deploying anything into it.
