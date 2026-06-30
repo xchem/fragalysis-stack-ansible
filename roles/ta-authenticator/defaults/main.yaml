@@ -1,5 +1,10 @@
 ---
 
+# The installation name. Selects the encrypted vault of sensitive
+# material loaded at deploy time ('vars/sensitive-{{ fragalysis_installation }}.vault').
+# Must be supplied at run time, e.g. '-e fragalysis_installation=argus'.
+fragalysis_installation: ""
+
 taa_state: "present"
 
 # The namespace to deploy the authenticator to.

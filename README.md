@@ -72,12 +72,68 @@ For these playbooks the `stack_image_tag` variable must always be provided
 
 `ansible.cfg` sets the inventory to `inventory.yaml`.
 
-### Secrets
+### Installations and secrets
 
-Sensitive values must be supplied at run time — via `-e`, an extra-vars.
-The relevant `defaults/main.yaml` entries are blank placeholders documenting
-what is required: the rsync/rclone backup credentials, the xchem ISPyB secrets, the
-Squonk2/Keycloak secrets, and the TA-auth service config.
+Each deployment of a component is an **installation**, identified by a
+short lower-case name (letters, digits and hyphens). Every playbook run
+must name its installation with `-e fragalysis_installation=<name>`; the
+roles assert it during `prep`.
+
+Sensitive, installation-specific material (S3 credentials, application
+passwords and keys) is held in **encrypted [Ansible Vault][vault] files**
+committed to the repository, so a component can be deployed from anywhere
+— including CI. Each role keeps one vault file per installation in its
+`vars/` directory, named `sensitive-<installation>.vault`. The matching
+`include_vars` loads the file named for `fragalysis_installation`, and its
+values override the blank placeholders in `defaults/main.yaml` and
+`vars/main.yaml`.
+
+To create an installation's vault, copy the role's
+`vars/sensitive-template.yaml`, fill in the values it needs, then encrypt
+it (see "Vault passwords" below). A worked, decryptable example exists as
+`vars/sensitive-example.vault` in each role (its password is `example`).
+
+#### Vault passwords
+
+All of an installation's vault files share one password; different
+installations use different passwords. This is implemented with a
+**labelled vault-id** matching the installation name, so the password is
+selected per installation:
+
+```bash
+# Encrypt (or edit) a vault for the 'argus' installation. The password
+# comes from ANSIBLE_VAULT_PASSWORD_ARGUS via the vault-client.py script.
+export ANSIBLE_VAULT_PASSWORD_ARGUS=...
+uv run ansible-vault encrypt \
+  --vault-id argus@vault-client.py \
+  roles/ta-authenticator/vars/sensitive-argus.vault
+
+# Run a playbook for that installation.
+uv run ansible-playbook site-ta-authenticator.yaml \
+  -e fragalysis_installation=argus \
+  --vault-id argus@vault-client.py
+```
+
+`vault-client.py` is a vault-password *client* script: Ansible calls it
+with `--vault-id <installation>` and it returns the password from the
+environment variable `ANSIBLE_VAULT_PASSWORD_<INSTALLATION>` (the name
+upper-cased, non-alphanumerics replaced by `_`). For an interactive run
+you can instead use `--vault-id <installation>@prompt`.
+
+In **CI (GitHub Actions)** store each installation's password as a secret
+(e.g. `VAULT_PASSWORD_ARGUS`) and expose it to the job as the matching
+environment variable — the password is read from the environment and is
+never written to disk or echoed into the logs:
+
+```yaml
+- name: Deploy
+  env:
+    ANSIBLE_VAULT_PASSWORD_ARGUS: ${{ secrets.VAULT_PASSWORD_ARGUS }}
+  run: |
+    uv run ansible-playbook site-ta-authenticator.yaml \
+      -e fragalysis_installation=argus \
+      --vault-id argus@vault-client.py
+```
 
 ## Authentication model
 
@@ -139,3 +195,4 @@ text is in the [LICENSE][license] file.
 [release-badge]: https://img.shields.io/github/v/release/xchem/fragalysis-stack-ansible?sort=semver
 [releases]: https://github.com/xchem/fragalysis-stack-ansible/releases/latest
 [uv]: https://docs.astral.sh/uv/
+[vault]: https://docs.ansible.com/ansible/latest/vault_guide/index.html
