@@ -1,0 +1,43 @@
+---
+
+- name: Check the namespace name is set
+  ansible.builtin.assert:
+    that:
+    - taa_namespace | string | length > 0
+
+# The namespace is provided for us, so we do not delete it. We only remove
+# the resources this role created within it.
+
+- name: Remove the authenticator resources
+  kubernetes.core.k8s:
+    state: absent
+    api_version: "{{ item.api_version }}"
+    kind: "{{ item.kind }}"
+    namespace: "{{ taa_namespace }}"
+    name: "{{ item.name }}"
+    wait: yes
+  loop:
+  - api_version: networking.k8s.io/v1
+    kind: Ingress
+    name: taa-stats
+  - api_version: networking.k8s.io/v1
+    kind: Ingress
+    name: taa-auth
+  - api_version: v1
+    kind: Service
+    name: stats
+  - api_version: v1
+    kind: Service
+    name: auth
+  - api_version: apps/v1
+    kind: Deployment
+    name: ta-authenticator
+  - api_version: v1
+    kind: Secret
+    name: keys
+  - api_version: v1
+    kind: ConfigMap
+    name: ssh-key
+  - api_version: v1
+    kind: ServiceAccount
+    name: ta-authenticator

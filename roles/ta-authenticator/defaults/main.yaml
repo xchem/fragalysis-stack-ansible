@@ -1,0 +1,42 @@
+---
+
+taa_state: 'present'
+
+# The namespace to deploy the authenticator to.
+taa_namespace: ""
+
+# An Auth ingress
+taa_auth_hostname: ""
+# Add a stats Ingress?
+# Yes if a URL is provided.
+taa_stats_hostname: ""
+taa_cert_issuer: production
+# The stats query key used to secure the stats endpoint.
+taa_stats_key: ""
+
+# The Target Access Authenticator image you want to deploy.
+taa_image_registry: docker.io
+taa_image: xchem/fragalysis-ispyb-target-access-authenticator
+taa_image_tag: '1.4.4'
+
+taa_cpu_request: 10m
+taa_cpu_limit: 1
+taa_memory_request: 128Mi
+taa_memory_limit: 128Mi
+
+# Image pull policy?
+# If not set it's automatic.
+taa_image_pull_policy:
+
+# Number of processes and concurrency within a process
+taa_workers: 1
+
+taa_ispyb_host: ""
+taa_ispyb_port: ""
+taa_ispyb_user: ""
+taa_ispyb_password: ""
+taa_ssh_host: ""
+taa_ssh_user: ""
+# If you want to provide a private key for SSH access, set it here.
+# It will be mounted into the container at a 'well known location'.
+taa_ssh_private_key: ""

@@ -1,0 +1,51 @@
+---
+
+- name: Include prep
+  ansible.builtin.include_tasks: prep.yaml
+
+# A kubernetes (or OpenShift) host and an API key must be set.
+# We will either have authenticated against an OpenShift server
+# or the AWX kubernetes credentials will have injected suitable
+# values for the K8S_AUTH_HOST and K8S_AUTH_API_KEY environment variables.
+# Either way the ansible variables 'k8s_auth_host' and
+# 'k8s_auth_api_key' will have been set.
+- name: Assert authentication
+  ansible.builtin.assert:
+    that:
+    - k8s_auth_host | length > 0
+    - k8s_auth_api_key | length > 0
+  when: k8s_kubeconfig | string | length == 0
+
+# Go...
+
+- name: Deploy (without KUBECONFIG)
+  module_defaults:
+    group/k8s:
+      host: "{{ k8s_auth_host }}"
+      api_key: "{{ k8s_auth_api_key }}"
+      validate_certs: "{{ k8s_auth_verify_ssl | default('no', true) }}"
+      wait_timeout: "{{ wait_timeout | int }}"
+  when: k8s_kubeconfig | string | length == 0
+  block:
+
+  - name: Deploy (without KUBECONFIG)
+    ansible.builtin.include_tasks: deploy.yaml
+    when: taa_state | string == 'present'
+  - name: Undeploy (without KUBECONFIG)
+    ansible.builtin.include_tasks: undeploy.yaml
+    when: taa_state | string == 'absent'
+
+- name: Deploy (with KUBECONFIG)
+  module_defaults:
+    group/k8s:
+      kubeconfig: "{{ k8s_kubeconfig }}"
+      wait_timeout: "{{ wait_timeout | int }}"
+  when: k8s_kubeconfig | string | length > 0
+  block:
+
+  - name: Deploy (with KUBECONFIG)
+    ansible.builtin.include_tasks: deploy.yaml
+    when: taa_state | string == 'present'
+  - name: Undeploy (with KUBECONFIG)
+    ansible.builtin.include_tasks: undeploy.yaml
+    when: taa_state | string == 'absent'

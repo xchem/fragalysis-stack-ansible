@@ -1,0 +1,115 @@
+---
+kind: Deployment
+apiVersion: apps/v1
+metadata:
+  name: ta-authenticator
+  namespace: {{ taa_namespace }}
+spec:
+  replicas: 1
+  strategy:
+    type: RollingUpdate
+  selector:
+    matchLabels:
+      name: ta-authenticator
+  template:
+    metadata:
+      labels:
+        name: ta-authenticator
+    spec:
+      serviceAccountName: ta-authenticator
+
+      containers:
+      - name: memcached
+        image: {{ taa_memcached_image_registry }}/{{ taa_memcached_image }}:{{ taa_memcached_image_tag }}
+        imagePullPolicy: IfNotPresent
+        args:
+        - '-v'
+        - '--memory-limit={{ taa_memcached_memory_limit_mb }}'
+        ports:
+        - containerPort: 11211
+        resources:
+          limits:
+            cpu: {{ taa_memcached_cpu_limit }}
+            memory: {{ taa_memcached_memory_limit }}
+          requests:
+            cpu: {{ taa_memcached_cpu_request }}
+            memory: {{ taa_memcached_memory_request }}
+
+      - name: ta-authenticator
+        image: {{ taa_image_registry }}/{{ taa_image }}:{{ taa_image_tag }}
+{% if taa_image_pull_policy %}
+        imagePullPolicy: {{taa_image_pull_policy }}
+{% elif taa_image_tag in ['latest', 'stable'] %}
+        imagePullPolicy: Always
+{% else %}
+        imagePullPolicy: IfNotPresent
+{% endif %}
+        terminationMessagePolicy: FallbackToLogsOnError
+        env:
+{% if taa_query_key %}
+        - name: TAA_QUERY_KEY
+          valueFrom:
+            secretKeyRef:
+              name: keys
+              key: query_key
+{% endif %}
+{% if taa_stats_key %}
+        - name: TAA_STATS_KEY
+          valueFrom:
+            secretKeyRef:
+              name: keys
+              key: stats_key
+{% endif %}
+        - name: TAA_ISPYB_HOST
+          value: '{{ taa_ispyb_host }}'
+        - name: TAA_ISPYB_PORT
+          value: '{{ taa_ispyb_port }}'
+        - name: TAA_ISPYB_USER
+          value: '{{ taa_ispyb_user }}'
+        - name: TAA_ISPYB_PASSWORD
+          value: '{{ taa_ispyb_password }}'
+        - name: TAA_SSH_HOST
+          value: '{{ taa_ssh_host }}'
+        - name: TAA_SSH_USER
+          value: '{{ taa_ssh_user }}'
+{% if taa_ssh_private_key %}
+        # A private key's been defined,
+        # so it will be in a 'well known location' in the container.
+        - name: TAA_SSH_PRIVATE_KEY_FILENAME
+          value: '/home/taa/fragalysis-stack-ssh-key'
+{% endif %}
+        - name: WORKERS
+          value: '{{ taa_workers }}'
+        ports:
+        - containerPort: 8080
+          name: auth
+        - containerPort: 8081
+          name: stats
+        resources:
+          limits:
+            cpu: {{ taa_cpu_limit }}
+            memory: {{ taa_memory_limit }}
+          requests:
+            cpu: {{ taa_cpu_request }}
+            memory: {{ taa_memory_request }}
+        livenessProbe:
+          tcpSocket:
+            port: http
+          initialDelaySeconds: 20
+          timeoutSeconds: 4
+          periodSeconds: 10
+          failureThreshold: 5
+          successThreshold: 1
+        volumeMounts:
+{% if taa_ssh_private_key %}
+        - name: ssh-key
+          mountPath: /home/taa/fragalysis-stack-ssh-key
+          subPath: fragalysis-stack-ssh-key
+{% endif %}
+
+      volumes:
+{% if taa_ssh_private_key %}
+      - name: ssh-key
+        configMap:
+          name: ssh-key
+{% endif %}

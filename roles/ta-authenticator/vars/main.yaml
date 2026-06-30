@@ -1,0 +1,24 @@
+---
+
+taa_memcached_image_registry: docker.io
+taa_memcached_image: memcached
+taa_memcached_image_tag: 1.6.39-alpine3.22
+
+# Memory limit
+# 128MB gives us 1,000 users, each with 10,000 TA strings?
+taa_memcached_memory_limit_mb: 128
+
+taa_memcached_cpu_request: 10m
+taa_memcached_cpu_limit: 1
+taa_memcached_memory_request: 160Mi
+taa_memcached_memory_limit: 160Mi
+
+# General variables -----------------------------------------------------------
+
+# General timeout, used within the k8s module for wait duration
+wait_timeout: 600
+# Install prerequisite Python modules?
+# Normally required from early AWX, not expected when run from a control machine
+# (where modules are expected to have been installed) and not from more recent
+# AWX servers (live v23 onwards) where the modules are already present.
+install_prerequisite_python_modules: no

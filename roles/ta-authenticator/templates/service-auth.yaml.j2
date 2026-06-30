@@ -1,0 +1,15 @@
+---
+kind: Service
+apiVersion: v1
+metadata:
+  name: auth
+  namespace: {{ taa_namespace }}
+  labels:
+    name: auth
+spec:
+  selector:
+    name: ta-authenticator
+  ports:
+  - name: auth
+    port: 80
+    targetPort: auth

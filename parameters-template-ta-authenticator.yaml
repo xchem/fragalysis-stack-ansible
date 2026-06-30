@@ -1,0 +1,12 @@
+---
+# Variables you might want to set when deploying your stack.
+# Copy as `parameters.yaml` (excluded in .gitignore) and run with: -
+#
+#   uv run ansible-playbook site.yaml -e @parameters.yaml
+
+taa_stats_hostname: ""
+taa_auth_hostname: ""
+
+taa_image_registry: docker.io
+taa_image: xchem/fragalysis-ispyb-target-access-authenticator
+taa_image_tag: "1.4.4"

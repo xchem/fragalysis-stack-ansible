@@ -1,0 +1,8 @@
+---
+
+- name: Deploy the TA Auth service
+  hosts: localhost
+  tasks:
+  - name: Run the ta-authenticator role
+    ansible.builtin.include_role:
+      name: ta_authenticator

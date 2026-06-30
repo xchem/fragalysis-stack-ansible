@@ -12,11 +12,9 @@ all work happens against a remote cluster via the
 `k8s`/`k8s_info` modules, not against the Ansible host itself.
 
 Each component exists as an Ansible **Role** with a corresponding
-`site-<Role>.yaml` play. Roles use `vars/sensitive.vault` to store
-sensitive (non-public) material required for the installation.
-When a play uses `tasks_from` the site filename will include the name
-of the task file. For example when the Fragalysis Stack play runs
-`wipe.yaml` its site file is called `site-fragalysis-stack_wipe.yaml`.
+`site-<Role>.yaml` play. When a play uses `tasks_from` the site filename
+will include the name of the task file. For example when the Fragalysis Stack
+play runs `wipe.yaml` its site file is called `site-fragalysis-stack_wipe.yaml`.
 
 ## Prerequisites
 
@@ -46,35 +44,36 @@ installation to suit your needs.
 
 ## Running the playbooks
 
-There is one role, `fragalysis_stack`, with four entrypoint playbooks
+There are a number of **Roles** and each role has a corresponding **site playbook**.
+For the Fragalysis Stack, there are four entrypoint playbooks
 that differ only in which `tasks_from` they load:
 
 ```bash
 # Deploy / update the full stack (tasks/main.yaml)
-uv run ansible-playbook site.yaml
+uv run ansible-playbook site-fragalysis-stack.yaml
 
 # Fast in-place app update only — stack, worker, beat (tasks/update.yaml)
-uv run ansible-playbook site_update.yaml
+uv run ansible-playbook site-fragalysis-stack_update.yaml
 
 # Remove stack + django secret, keep DB and (by default) media volume
 # (tasks/shutdown.yaml)
-uv run ansible-playbook site_shutdown.yaml
+uv run ansible-playbook site-fragalysis-stack_shutdown.yaml
 
 # Remove stack, redis, DB and all volumes but keep namespace + cert
 # (tasks/wipe.yaml)
-uv run ansible-playbook site_wipe.yaml
+uv run ansible-playbook site-fragalysis-stack_wipe.yaml
 ```
 
-`stack_image_tag` must always be provided (no default that works) — pass
-it with `-e stack_image_tag=...` or via an AWX survey. `ansible.cfg` sets
-the inventory to `inventory.yaml`.
+For these playbooks the `stack_image_tag` variable must always be provided
+(no sensible default works) — you provide it with `-e stack_image_tag=...`.
+
+`ansible.cfg` sets the inventory to `inventory.yaml`.
 
 ### Secrets
 
-Sensitive values must be supplied at run time — via `-e`, an extra-vars
-file, or AWX credentials/surveys. The relevant `defaults/main.yaml`
-entries are blank placeholders documenting what is required: the
-rsync/rclone backup credentials, the xchem ISPyB secrets, the
+Sensitive values must be supplied at run time — via `-e`, an extra-vars.
+The relevant `defaults/main.yaml` entries are blank placeholders documenting
+what is required: the rsync/rclone backup credentials, the xchem ISPyB secrets, the
 Squonk2/Keycloak secrets, and the TA-auth service config.
 
 ## Authentication model
@@ -91,7 +90,7 @@ passes it explicitly because it does not go through `main.yaml`).
 
 ## Deploy flow and idempotency conventions
 
-`tasks/deploy.yaml` orchestrates: namespace + serviceaccount → backup
+`tasks/deploy.yaml` orchestrates: serviceaccount → backup
 secrets → database (unless `database_host` points at an external DB) →
 redis + stack (unless `stack_skip_deploy`). Everything except the graph
 lives in the one `stack_namespace`; undeploy simply deletes the namespace
@@ -121,7 +120,7 @@ Key patterns to preserve when editing tasks:
 
 ## Templates
 
-Templates in `roles/fragalysis_stack/templates/*.j2` are the Kubernetes
+Templates (`roles/fragalysis_stack/templates/*.j2` for example) are the Kubernetes
 manifests rendered via `lookup('template', ...)`. Adding a new K8s object
 means adding a template and a `k8s:` task referencing it.
 
@@ -129,6 +128,8 @@ means adding a template and a `k8s:` task referencing it.
 
 Licensed under the [Apache License, Version 2.0][apache-2.0]; the full
 text is in the [LICENSE][license] file.
+
+---
 
 [apache-2.0]: https://www.apache.org/licenses/LICENSE-2.0
 [license]: LICENSE

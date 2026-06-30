@@ -1,0 +1,29 @@
+---
+kind: Ingress
+apiVersion: networking.k8s.io/v1
+metadata:
+  name: taa-auth
+  namespace: {{ taa_namespace }}
+  annotations:
+{% if taa_cert_issuer %}
+    cert-manager.io/cluster-issuer: "letsencrypt-nginx-{{ taa_cert_issuer|lower }}"
+{% endif %}
+spec:
+  ingressClassName: nginx
+{% if taa_cert_issuer %}
+  tls:
+  - hosts:
+    - {{ taa_auth_hostname }}
+    secretName: taa-auth-tls
+{% endif %}
+  rules:
+  - host: {{ taa_auth_hostname }}
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: auth
+            port:
+              name: auth

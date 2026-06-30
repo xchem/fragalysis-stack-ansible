@@ -1,0 +1,44 @@
+---
+
+# Common playbook preparation.
+
+# Expose ansible version
+- name: Display ansible version
+  ansible.builtin.debug:
+    var: ansible_version.full
+
+# Collect and display freeze result
+
+- name: Freeze
+  ansible.builtin.command: pip freeze
+  changed_when: false
+  register: freeze_result
+
+- name: Display freezer
+  ansible.builtin.debug:
+    var: freeze_result.stdout_lines
+
+# Kubernetes credentials ------------------------------------------------------
+
+# We load the path to the kubeconfig from the KUBECONFIG environment
+# variable, falling back to the conventional '~/.kube/config' when it is
+# unset, then assert that the resolved file actually exists.
+
+- name: Set kubeconfig fact
+  ansible.builtin.set_fact:
+    k8s_kubeconfig: >-
+      {{ lookup('env', 'KUBECONFIG')
+         or lookup('env', 'HOME') ~ '/.kube/config' }}
+
+- name: Locate the kubeconfig
+  ansible.builtin.stat:
+    path: "{{ k8s_kubeconfig }}"
+  register: kubeconfig_stat
+
+- name: Assert authentication
+  ansible.builtin.assert:
+    that:
+    - kubeconfig_stat.stat.exists
+    fail_msg: >-
+      No kubeconfig found at '{{ k8s_kubeconfig }}';
+      set KUBECONFIG or create '~/.kube/config'.

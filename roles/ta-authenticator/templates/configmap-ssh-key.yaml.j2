@@ -1,0 +1,8 @@
+---
+kind: ConfigMap
+apiVersion: v1
+metadata:
+  name: ssh-key
+  namespace: {{ taa_namespace }}
+data:
+  fragalysis-stack-ssh-key: {{ taa_ssh_private_key | to_yaml }}

@@ -1,0 +1,82 @@
+---
+
+- name: Include sensitive variables
+  ansible.builtin.include_vars:
+    file: sensitive.vault
+
+# The namespace is provided for us (we do not create it). We insist that
+# the chosen namespace already exists before deploying anything into it.
+
+- name: Check the namespace name is set
+  ansible.builtin.assert:
+    that:
+    - taa_namespace | string | length > 0
+
+- name: Get the namespace '{{ taa_namespace }}'
+  kubernetes.core.k8s_info:
+    kind: Namespace
+    api_version: v1
+    name: "{{ taa_namespace }}"
+  register: taa_namespace_info
+
+- name: Assert the namespace exists
+  ansible.builtin.assert:
+    that:
+    - taa_namespace_info.resources | length > 0
+    fail_msg: >-
+      The namespace '{{ taa_namespace }}' does not exist. It must be
+      created before the authenticator can be deployed.
+
+- name: Create the service account
+  kubernetes.core.k8s:
+    definition: "{{ lookup('template', 'serviceaccount.yaml.j2') }}"
+    wait: yes
+
+- name: Deploy SSH Private Key
+  kubernetes.core.k8s:
+    definition: "{{ lookup('template', 'configmap-ssh-key.yaml.j2') }}"
+    wait: yes
+  when:
+  - taa_ssh_private_key | string | length != 0
+
+- name: Check keys secret
+  kubernetes.core.k8s_info:
+    kind: Secret
+    api_version: v1
+    namespace: "{{ taa_namespace }}"
+    name: keys
+  register: s_result
+
+- name: Set (new) keys secret
+  when: s_result.resources | length == 0
+  block:
+
+  - name: Write keys secret
+    kubernetes.core.k8s:
+      definition: "{{ lookup('template', 'secret.yaml.j2') }}"
+      wait: yes
+
+- name: Deploy authenticator
+  kubernetes.core.k8s:
+    definition: "{{ lookup('template', item) }}"
+    wait: yes
+  loop:
+  - deployment.yaml.j2
+  - service-auth.yaml.j2
+
+- name: Deploy authenticator auth Ingress
+  kubernetes.core.k8s:
+    definition: "{{ lookup('template', item) }}"
+    wait: yes
+  loop:
+  - ingress-auth.yaml.j2
+  when: taa_auth_hostname | string | length > 0
+
+- name: Deploy authenticator stats Ingress
+  kubernetes.core.k8s:
+    definition: "{{ lookup('template', item) }}"
+    wait: yes
+  loop:
+  - service-stats.yaml.j2
+  - ingress-stats.yaml.j2
+  when: taa_stats_hostname | string | length > 0
