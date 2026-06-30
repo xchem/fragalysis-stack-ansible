@@ -1,13 +1,22 @@
-# Fragalysis Stack (Ansible)
+# Fragalysis Ansible
 
 [![Latest release][release-badge]][releases]
 
-An Ansible project that deploys the **Fragalysis Stack** (a Django web
-app, Celery workers, PostgreSQL, Redis, pgBouncer and supporting
-services) onto a Kubernetes cluster. It is designed to run from
-a control machine. The host is `localhost` with a local connection —
+A project of Ansible playbooks. Playbooks that deploy the components
+that a part fo the **Fragalysis** suite into Kubernetes. The suite
+includesthe **Fragalysis Stack** (a Django web app, Celery workers,
+PostgreSQL, Redis, pgBouncer and supporting services),
+and the **Target Access Authenticator**. Playbooks are designed to run
+from a control machine. The host is `localhost` with a local connection —
 all work happens against a remote cluster via the
 `k8s`/`k8s_info` modules, not against the Ansible host itself.
+
+Each component exists as an Ansible **Role** with a corresponding
+`site-<Role>.yaml` play. Roles use `vars/sensitive.vault` to store
+sensitive (non-public) material required for the installation.
+When a play uses `tasks_from` the site filename will include the name
+of the task file. For example when the Fragalysis Stack play runs
+`wipe.yaml` its site file is called `site-fragalysis-stack_wipe.yaml`.
 
 ## Prerequisites
 
@@ -16,8 +25,10 @@ You are expected to have a suitable Python (the project targets Python
 virtual environment and runs the playbooks (e.g.
 `uv run ansible-playbook ...`).
 
-You also need access to the Kubernetes cluster, specifically a namespace
-whose name matches your `USER` environment variable setting.
+You also need access to the Kubernetes cluster, where a **Namespace**
+is expected to exist for each component. For example, when there are
+multipole stacks (production and legacy) each stack is expected to
+reside in its own **Namespace**.
 
 ## Variables
 
